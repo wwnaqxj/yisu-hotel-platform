@@ -1,0 +1,29 @@
+page {
+  background: #f7f7f7;
+  color: #111;
+  font-size: 28rpx;
+}
+
+.container {
+  padding: 24rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.btn {
+  background: #1677ff;
+  color: #fff;
+  border-radius: 12rpx;
+  padding: 18rpx 24rpx;
+  text-align: center;
+}
+
+.input {
+  background: #f3f4f6;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+}

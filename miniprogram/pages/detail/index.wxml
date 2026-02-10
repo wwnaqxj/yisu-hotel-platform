@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="card">
+    <view style="font-size: 34rpx; font-weight: 600;">{{hotel.nameZh || hotel.nameEn || '酒店详情'}}</view>
+    <view style="margin-top: 10rpx; font-size:24rpx; opacity:.7;">星级：{{hotel.star || '-'}}</view>
+    <view style="margin-top: 6rpx; font-size:24rpx; opacity:.7;">地址：{{hotel.address || ''}}</view>
+  </view>
+
+  <view style="height: 16rpx;"></view>
+
+  <view class="card">
+    <view style="font-weight:600;">房型价格（从低到高）</view>
+    <view style="height: 12rpx;"></view>
+
+    <view wx:for="{{rooms}}" wx:key="id" style="padding: 18rpx 0; border-bottom: 1rpx solid #eee;">
+      <view style="display:flex; justify-content:space-between; gap: 16rpx;">
+        <view>{{item.name}}</view>
+        <view style="font-weight:600;">¥ {{item.price}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{rooms.length === 0}}" style="font-size:24rpx; opacity:.7;">暂无房型</view>
+  </view>
+
+  <view wx:if="{{error}}" style="margin-top: 16rpx; color: crimson;">{{error}}</view>
+</view>

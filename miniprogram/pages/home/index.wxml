@@ -1,0 +1,34 @@
+<view class="container">
+  <view class="card" bindtap="onBannerTap">
+    <view style="font-size: 34rpx; font-weight: 600;">易宿精选酒店</view>
+    <view style="margin-top: 10rpx; opacity: .8;">点击进入示例详情</view>
+  </view>
+
+  <view style="height: 24rpx;"></view>
+
+  <view class="card">
+    <view>城市</view>
+    <input class="input" placeholder="请输入城市" value="{{city}}" bindinput="onCityInput" />
+
+    <view style="height: 16rpx;"></view>
+
+    <view>关键词</view>
+    <input class="input" placeholder="酒店名/地址关键词" value="{{keyword}}" bindinput="onKeywordInput" />
+
+    <view style="height: 16rpx;"></view>
+
+    <view>日期</view>
+    <view style="display:flex; gap: 16rpx; align-items:center; margin-top: 10rpx;">
+      <picker mode="date" value="{{checkIn}}" bindchange="onCheckInChange">
+        <view class="input">{{checkIn || '选择入住'}}</view>
+      </picker>
+      <view style="opacity:.6;">至</view>
+      <picker mode="date" value="{{checkOut}}" bindchange="onCheckOutChange">
+        <view class="input">{{checkOut || '选择离店'}}</view>
+      </picker>
+    </view>
+
+    <view style="height: 20rpx;"></view>
+    <view class="btn" bindtap="onSearch">查询</view>
+  </view>
+</view>
