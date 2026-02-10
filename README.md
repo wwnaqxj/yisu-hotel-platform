@@ -1,39 +1,40 @@
-<<<<<<< HEAD
 # 易宿酒店预订平台（yisu-hotel-platform）
 
-## 项目简介
-本项目包含两部分：
-- `miniprogram/`：微信小程序（用户端预定流程）
-- `client/`：前端 React（PC 管理端）
-- `server/`：Node.js 后端服务（登录鉴权、酒店信息录入、审核发布、查询展示）
+易宿酒店预订平台是一个面向现代旅游出行场景的综合服务体系，旨在为酒店商家与终端消费者之间搭建高效、便捷的信息交互桥梁。
+
+本项目分为两部分：
+- 商户端（PC 管理端）：酒店信息录入/编辑，提交审核
+- 用户端（微信小程序）：酒店查询、列表、详情
 
 ## 目录结构
-- `miniprogram/`：微信小程序工程（使用微信开发者工具打开）
-- `client/`：前端工程
-- `server/`：后端工程
+- `miniprogram/`：微信小程序（用户端预定流程，使用微信开发者工具打开）
+- `client/`：前端 React（PC 管理端）
+- `server/`：Node.js 后端服务（Express + Prisma + MySQL）
 - `docs/`：汇报 PPT / 设计文档
 
 ## 本地启动
 
-### 1) 启动后端
+### 1) 启动后端（server）
+在 `server/` 目录下执行：
 ```bash
 npm install
+npm run prisma:generate
+npm run prisma:migrate
 npm run dev
 ```
-在 `server/` 目录下执行。
 
 默认地址：`http://localhost:3001`
 
-### 2) 启动前端
+### 2) 启动 PC 管理端（client）
+在 `client/` 目录下执行：
 ```bash
 npm install
 npm run dev
 ```
-在 `client/` 目录下执行。
 
 默认地址：Vite 控制台输出（通常为 `http://localhost:5173`）
 
-### 3) 启动微信小程序
+### 3) 启动微信小程序（miniprogram）
 使用微信开发者工具打开仓库中的 `miniprogram/` 目录。
 
 > 注意：小程序请求后端时默认 `baseURL=http://localhost:3001`，需要先启动后端。
@@ -43,13 +44,38 @@ npm run dev
 ```env
 PORT=3001
 JWT_SECRET=dev_secret
+DATABASE_URL="mysql://root:你的密码@localhost:3306/yisuhotel"
+
+# 可选：默认种子账号（首次启动 server 会自动创建，若已存在则跳过）
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+MERCHANT_USERNAME=merchant
+MERCHANT_PASSWORD=merchant123
 ```
+
+## PC 管理端路由
+- `/admin/login`：登录 / 注册
+- `/admin/merchant/hotel-edit`：商户酒店录入/编辑（仅 `merchant` 可访问）
+- `/admin/audit`：管理员审核列表（仅 `admin` 可访问）
+- `/admin/profile`：个人中心（已登录即可访问）
+
+## 后端接口（Auth）
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`：获取当前登录用户信息（从数据库读取最新 `username/role`）
+- `PUT /api/auth/profile`：修改用户名（需登录）
+- `PUT /api/auth/password`：修改密码（需登录，必须提供旧密码）
+
+## 退出登录
+PC 管理端右上角下拉菜单点击“退出登录”会：
+- 清理本地 token / 登录态
+- 跳转回 `/admin/login`
+
+## UI 依赖说明
+PC 管理端使用 Ant Design（antd）组件库：
+- 已在 `client/src/main.jsx` 引入 `antd/dist/reset.css`
 
 ## 说明
 当前为脚手架骨架：
-- 已包含路由、页面、组件、store、请求封装的基础结构
-- 业务功能需要在此基础上逐步补齐
-=======
-# yisu-hotel-platform
-易宿酒店预订平台-智慧出行酒店预订平台是一个面向现代旅游出行场景的综合服务体系，旨在为酒店商家与终端消费者之间搭建高效、便捷 的信息交互桥梁。本项目分为两部分, 分别是商户端的管理酒店信息平台和用户端的酒店预定流程页面. 通过差异化的产 品设计满足不同用户群体的核心诉求。商户端平台专注于酒店信息管理与运营协作，为酒店商家提供专业化的信息录入、 审核流程及发布管理能力；用户端平台则聚焦于用户体验优化，通过简洁直观的交互流程帮助用户快速找到符合需求的优 质酒店。
->>>>>>> 30b6ee2a2522c3f869bade4450b0c4ad4cbd5807
+- 已包含基础路由、鉴权、审核流转与前后端调用示例
+- 业务功能需要在此基础上逐步补齐与完善 UI/交互

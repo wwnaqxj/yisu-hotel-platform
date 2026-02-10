@@ -1,26 +1,19 @@
-const { hotels, rooms } = require('../data/db');
 const { httpError } = require('../utils/errors');
+const { getPrisma } = require('../prismaClient');
 
-function upsertRooms(hotelId, roomItems) {
-  if (!Array.isArray(roomItems)) return;
-
-  // Remove existing rooms for hotel
-  for (let i = rooms.length - 1; i >= 0; i--) {
-    if (rooms[i].hotelId === hotelId) rooms.splice(i, 1);
-  }
-
-  roomItems.forEach((r, idx) => {
-    rooms.push({
-      id: r.id || `r_${hotelId}_${idx}_${Date.now()}`,
-      hotelId,
+function normalizeRoomItems(roomItems) {
+  if (!Array.isArray(roomItems)) return [];
+  return roomItems
+    .filter((r) => r && (r.name || r.price != null))
+    .map((r, idx) => ({
       name: r.name || `Room ${idx + 1}`,
       price: Number(r.price || 0),
-    });
-  });
+    }));
 }
 
 function createHotel(req, res, next) {
   try {
+    const prisma = getPrisma();
     const ownerId = req.user.id;
     const {
       nameZh,
@@ -38,27 +31,26 @@ function createHotel(req, res, next) {
       throw httpError(400, 'missing required fields');
     }
 
-    const hotel = {
-      id: `h_${Date.now()}`,
-      ownerId,
-      nameZh,
-      nameEn,
-      city: city || '',
-      address,
-      star,
-      openTime,
-      facilities: facilities || [],
-      images: images || [],
-      status: 'pending',
-      rejectReason: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    hotels.push(hotel);
-    upsertRooms(hotel.id, roomTypes);
-
-    res.json({ hotel });
+    const rooms = normalizeRoomItems(roomTypes);
+    prisma.hotel
+      .create({
+        data: {
+          ownerId,
+          nameZh,
+          nameEn,
+          city: city || '',
+          address,
+          star: Number(star),
+          openTime,
+          facilities: facilities ?? undefined,
+          images: images ?? undefined,
+          status: 'pending',
+          rejectReason: '',
+          rooms: rooms.length ? { create: rooms } : undefined,
+        },
+      })
+      .then((hotel) => res.json({ hotel }))
+      .catch(next);
   } catch (e) {
     next(e);
   }
@@ -66,44 +58,84 @@ function createHotel(req, res, next) {
 
 function updateHotel(req, res, next) {
   try {
+    const prisma = getPrisma();
     const ownerId = req.user.id;
-    const { id } = req.params;
-    const hotel = hotels.find((h) => h.id === id);
-    if (!hotel) throw httpError(404, 'hotel not found');
-    if (hotel.ownerId !== ownerId) throw httpError(403, 'forbidden');
-
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
     const patch = req.body || {};
 
-    hotel.nameZh = patch.nameZh ?? hotel.nameZh;
-    hotel.nameEn = patch.nameEn ?? hotel.nameEn;
-    hotel.city = patch.city ?? hotel.city;
-    hotel.address = patch.address ?? hotel.address;
-    hotel.star = patch.star ?? hotel.star;
-    hotel.openTime = patch.openTime ?? hotel.openTime;
-    hotel.facilities = patch.facilities ?? hotel.facilities;
-    hotel.images = patch.images ?? hotel.images;
+    prisma.hotel
+      .findUnique({ where: { id } })
+      .then((hotel) => {
+        if (!hotel) throw httpError(404, 'hotel not found');
+        if (hotel.ownerId !== ownerId) throw httpError(403, 'forbidden');
 
-    // Editing sends back to pending for re-audit
-    hotel.status = 'pending';
-    hotel.rejectReason = '';
-    hotel.updatedAt = new Date().toISOString();
+        const rooms = normalizeRoomItems(patch.roomTypes);
 
-    upsertRooms(hotel.id, patch.roomTypes);
-
-    res.json({ hotel });
+        return prisma.hotel.update({
+          where: { id },
+          data: {
+            nameZh: patch.nameZh ?? undefined,
+            nameEn: patch.nameEn ?? undefined,
+            city: patch.city ?? undefined,
+            address: patch.address ?? undefined,
+            star: patch.star != null ? Number(patch.star) : undefined,
+            openTime: patch.openTime ?? undefined,
+            facilities: patch.facilities ?? undefined,
+            images: patch.images ?? undefined,
+            status: 'pending',
+            rejectReason: '',
+            rooms: rooms.length
+              ? {
+                  deleteMany: {},
+                  create: rooms,
+                }
+              : undefined,
+          },
+        });
+      })
+      .then((hotel) => res.json({ hotel }))
+      .catch(next);
   } catch (e) {
     next(e);
   }
 }
 
 function myHotels(req, res) {
+  const prisma = getPrisma();
   const ownerId = req.user.id;
-  const items = hotels.filter((h) => h.ownerId === ownerId);
-  res.json({ items });
+  prisma.hotel
+    .findMany({ where: { ownerId }, orderBy: { updatedAt: 'desc' } })
+    .then((items) => res.json({ items }))
+    .catch((e) => res.status(500).json({ message: e.message || 'Server error' }));
+}
+
+function hotelDetail(req, res, next) {
+  try {
+    const prisma = getPrisma();
+    const ownerId = req.user.id;
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
+
+    prisma.hotel
+      .findUnique({
+        where: { id },
+        include: { rooms: { orderBy: { price: 'asc' } } },
+      })
+      .then((hotel) => {
+        if (!hotel) throw httpError(404, 'hotel not found');
+        if (hotel.ownerId !== ownerId) throw httpError(403, 'forbidden');
+        res.json({ hotel, rooms: hotel.rooms || [] });
+      })
+      .catch(next);
+  } catch (e) {
+    next(e);
+  }
 }
 
 module.exports = {
   createHotel,
   updateHotel,
   myHotels,
+  hotelDetail,
 };

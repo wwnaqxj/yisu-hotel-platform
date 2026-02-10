@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const hotelRoutes = require('./routes/hotel');
 const adminRoutes = require('./routes/admin');
 const merchantRoutes = require('./routes/merchant');
+const { ensureAdmin, ensureMerchant } = require('./seed');
 
 const app = express();
 
@@ -31,6 +32,12 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3001);
-app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
-});
+Promise.all([ensureAdmin(), ensureMerchant()])
+  .catch((e) => {
+    console.error('Seed failed:', e);
+  })
+  .finally(() => {
+    app.listen(port, () => {
+      console.log(`Server listening on http://localhost:${port}`);
+    });
+  });

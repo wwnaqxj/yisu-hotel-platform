@@ -8,7 +8,10 @@ function authRequired(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
-    req.user = payload;
+    req.user = {
+      ...payload,
+      id: payload?.id != null ? Number(payload.id) : payload?.id,
+    };
     return next();
   } catch (e) {
     return next(httpError(401, 'Invalid token'));

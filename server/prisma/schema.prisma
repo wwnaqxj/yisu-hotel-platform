@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  merchant
+}
+
+enum HotelStatus {
+  pending
+  approved
+  rejected
+  offline
+}
+
+model User {
+  id           Int     @id @default(autoincrement())
+  username     String  @unique
+  passwordHash String
+  role         Role
+
+  hotels       Hotel[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Hotel {
+  id           Int         @id @default(autoincrement())
+  ownerId      Int
+  owner        User        @relation(fields: [ownerId], references: [id])
+
+  nameZh       String
+  nameEn       String
+  city         String      @default("")
+  address      String
+  star         Int
+  openTime     String
+
+  status       HotelStatus @default(pending)
+  rejectReason String      @default("")
+
+  facilities   Json?
+  images       Json?
+  nearby       Json?
+  discount     Json?
+
+  rooms        Room[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([city])
+}
+
+model Room {
+  id      Int   @id @default(autoincrement())
+  hotelId Int
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  name  String
+  price Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hotelId])
+}

@@ -9,8 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "@reduxjs/toolkit": "^2.2.3",
+    "antd": "^6.3.0",
     "axios": "^1.6.8",
+    "dayjs": "^1.11.19",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-redux": "^9.1.2",

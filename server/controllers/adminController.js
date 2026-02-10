@@ -1,23 +1,30 @@
-const { hotels } = require('../data/db');
 const { httpError } = require('../utils/errors');
+const { getPrisma } = require('../prismaClient');
 
 function auditList(req, res) {
+  const prisma = getPrisma();
   const status = req.query.status || 'pending';
-  const items = hotels.filter((h) => h.status === status);
-  res.json({ items });
+  prisma.hotel
+    .findMany({ where: { status }, orderBy: { updatedAt: 'desc' } })
+    .then((items) => res.json({ items }))
+    .catch((e) => res.status(500).json({ message: e.message || 'Server error' }));
 }
 
 function approve(req, res, next) {
   try {
-    const { id } = req.params;
-    const hotel = hotels.find((h) => h.id === id);
-    if (!hotel) throw httpError(404, 'hotel not found');
-
-    hotel.status = 'approved';
-    hotel.rejectReason = '';
-    hotel.updatedAt = new Date().toISOString();
-
-    res.json({ hotel });
+    const prisma = getPrisma();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
+    prisma.hotel
+      .update({
+        where: { id },
+        data: { status: 'approved', rejectReason: '' },
+      })
+      .then((hotel) => res.json({ hotel }))
+      .catch((e) => {
+        if (e.code === 'P2025') return next(httpError(404, 'hotel not found'));
+        return next(e);
+      });
   } catch (e) {
     next(e);
   }
@@ -25,16 +32,20 @@ function approve(req, res, next) {
 
 function reject(req, res, next) {
   try {
-    const { id } = req.params;
+    const prisma = getPrisma();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
     const { reason } = req.body;
-    const hotel = hotels.find((h) => h.id === id);
-    if (!hotel) throw httpError(404, 'hotel not found');
-
-    hotel.status = 'rejected';
-    hotel.rejectReason = reason || 'not specified';
-    hotel.updatedAt = new Date().toISOString();
-
-    res.json({ hotel });
+    prisma.hotel
+      .update({
+        where: { id },
+        data: { status: 'rejected', rejectReason: reason || 'not specified' },
+      })
+      .then((hotel) => res.json({ hotel }))
+      .catch((e) => {
+        if (e.code === 'P2025') return next(httpError(404, 'hotel not found'));
+        return next(e);
+      });
   } catch (e) {
     next(e);
   }
@@ -42,14 +53,16 @@ function reject(req, res, next) {
 
 function offline(req, res, next) {
   try {
-    const { id } = req.params;
-    const hotel = hotels.find((h) => h.id === id);
-    if (!hotel) throw httpError(404, 'hotel not found');
-
-    hotel.status = 'offline';
-    hotel.updatedAt = new Date().toISOString();
-
-    res.json({ hotel });
+    const prisma = getPrisma();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
+    prisma.hotel
+      .update({ where: { id }, data: { status: 'offline' } })
+      .then((hotel) => res.json({ hotel }))
+      .catch((e) => {
+        if (e.code === 'P2025') return next(httpError(404, 'hotel not found'));
+        return next(e);
+      });
   } catch (e) {
     next(e);
   }
@@ -57,14 +70,16 @@ function offline(req, res, next) {
 
 function online(req, res, next) {
   try {
-    const { id } = req.params;
-    const hotel = hotels.find((h) => h.id === id);
-    if (!hotel) throw httpError(404, 'hotel not found');
-
-    hotel.status = 'approved';
-    hotel.updatedAt = new Date().toISOString();
-
-    res.json({ hotel });
+    const prisma = getPrisma();
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
+    prisma.hotel
+      .update({ where: { id }, data: { status: 'approved' } })
+      .then((hotel) => res.json({ hotel }))
+      .catch((e) => {
+        if (e.code === 'P2025') return next(httpError(404, 'hotel not found'));
+        return next(e);
+      });
   } catch (e) {
     next(e);
   }
