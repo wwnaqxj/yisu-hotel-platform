@@ -19,7 +19,9 @@ Page({
     guests: 2,
     roomCount: 1,
 
-    today: ''
+    today: '',
+
+    selectedRoom: null
   },
 
   onLoad(options) {
@@ -110,6 +112,43 @@ Page({
   incRooms() {
     const v = Math.min(10, Number(this.data.roomCount) + 1);
     this.setData({ roomCount: v });
+  },
+
+  calcTotal(price) {
+    const p = Number(price || 0);
+    const nights = Number(this.data.nights || 1);
+    const roomCount = Number(this.data.roomCount || 1);
+    const total = Math.max(0, p) * Math.max(1, nights) * Math.max(1, roomCount);
+    return total;
+  },
+
+  onSelectRoom(e) {
+    const idx = Number(e?.currentTarget?.dataset?.index);
+    const room = Number.isFinite(idx) ? this.data.rooms[idx] : null;
+    if (!room) return;
+
+    const { checkIn, checkOut, nights, guests, roomCount } = this.data;
+    const total = this.calcTotal(room.price);
+
+    const content =
+      `房型：${room.name}\n` +
+      `日期：${checkIn} - ${checkOut}（${nights}晚）\n` +
+      `人数：${guests}  房间：${roomCount}\n` +
+      `总价：¥ ${total}`;
+
+    this.setData({ selectedRoom: room });
+
+    wx.showModal({
+      title: '确认预订',
+      content,
+      confirmText: '确认',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showToast({ title: '预订成功（演示）', icon: 'success' });
+        }
+      }
+    });
   },
 
   normalizeImages(images) {

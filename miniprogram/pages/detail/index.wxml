@@ -103,7 +103,7 @@
       <view class="section-title">房型价格</view>
       <view class="section-sub">价格从低到高（按商户录入）</view>
 
-      <view class="room" wx:for="{{rooms}}" wx:key="id">
+      <view class="room" wx:for="{{rooms}}" wx:key="id" bindtap="onSelectRoom" data-index="{{index}}">
         <view class="room-left">
           <view class="room-name">{{item.name}}</view>
           <view class="room-sub">可订 · 含税/服务费规则以实际为准</view>
