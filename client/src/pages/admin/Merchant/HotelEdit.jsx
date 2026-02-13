@@ -58,6 +58,8 @@ export default function HotelEdit() {
     address: '',
     star: 5,
     openTime: toDateInputValue('2020-01-01'),
+    images: [],
+    videos: [],
     roomTypes: [{ name: '标准间', price: 299 }],
   });
 
@@ -105,6 +107,8 @@ export default function HotelEdit() {
       address: '',
       star: 5,
       openTime: toDateInputValue('2020-01-01'),
+      images: [],
+      videos: [],
       roomTypes: [{ name: '标准间', price: 299 }],
     });
   }
@@ -124,6 +128,8 @@ export default function HotelEdit() {
         address: h.address || '',
         star: Number(h.star || 5),
         openTime: toDateInputValue(h.openTime),
+        images: Array.isArray(h.images) ? h.images : h.images ? [h.images] : [],
+        videos: Array.isArray(h.videos) ? h.videos : h.videos ? [h.videos] : [],
         roomTypes:
           rooms.length > 0
             ? rooms.map((r) => ({ name: r.name || '', price: Number(r.price || 0) }))
@@ -162,11 +168,99 @@ export default function HotelEdit() {
     });
   }
 
+  async function uploadOne(file, type) {
+    const form = new FormData();
+    form.append('file', file);
+
+    const res = await api.post(`/api/upload/single?type=${encodeURIComponent(type)}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data?.url;
+  }
+
+  async function onPickImages(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+
+    setLoading(true);
+    try {
+      const urls = [];
+      for (const f of files) {
+        const url = await uploadOne(f, 'image');
+        if (url) urls.push(url);
+      }
+      setValues((v) => ({ ...v, images: [...(v.images || []), ...urls] }));
+      notify('success', '图片上传成功');
+    } catch (err) {
+      notify('error', err.message || '图片上传失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onPickVideos(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+
+    setLoading(true);
+    try {
+      const urls = [];
+      for (const f of files) {
+        const url = await uploadOne(f, 'video');
+        if (url) urls.push(url);
+      }
+      setValues((v) => ({ ...v, videos: [...(v.videos || []), ...urls] }));
+      notify('success', '视频上传成功');
+    } catch (err) {
+      notify('error', err.message || '视频上传失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function removeMedia(kind, index) {
+    setValues((v) => {
+      const arr = Array.isArray(v[kind]) ? v[kind].slice() : [];
+      arr.splice(index, 1);
+      return { ...v, [kind]: arr };
+    });
+  }
+
+  function getStatusChip(status, reason) {
+    const s = String(status || 'pending');
+    if (s === 'Pass' || s === 'approved') return <Chip size="small" color="success" label="已发布" />;
+    if (s === 'Reject' || s === 'rejected') return <Chip size="small" color="error" label={reason ? `已驳回` : '已驳回'} />;
+    if (s === 'offline') return <Chip size="small" color="warning" label="已下线" />;
+    return <Chip size="small" color="info" label="审核中" />;
+  }
+
+  function openMenu(e) {
+    setMenuAnchor(e.currentTarget);
+  }
+
+  function closeMenu() {
+    setMenuAnchor(null);
+  }
+
+  function onProfile() {
+    closeMenu();
+    navigate('/admin/profile');
+  }
+
+  function onLogout() {
+    closeMenu();
+    dispatch(logoutAction());
+    navigate('/admin/login', { replace: true });
+  }
+
   function validate() {
     if (!values.nameZh?.trim()) return '请输入中文名称';
     if (!values.nameEn?.trim()) return '请输入英文名称';
     if (!values.city?.trim()) return '请输入城市';
     if (!values.address?.trim()) return '请输入详细地址';
+
     const star = Number(values.star);
     if (!Number.isFinite(star) || star < 1 || star > 5) return '星级需为 1~5';
     if (!values.openTime) return '请选择开业时间';
@@ -198,6 +292,8 @@ export default function HotelEdit() {
         address: values.address,
         star: Number(values.star),
         openTime: values.openTime,
+        images: values.images,
+        videos: values.videos,
         roomTypes: values.roomTypes.map((r) => ({ name: r.name, price: Number(r.price) })),
       };
 
@@ -216,33 +312,6 @@ export default function HotelEdit() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function getStatusChip(status, reason) {
-    const s = String(status || 'pending');
-    if (s === 'Pass' || s === 'approved') return <Chip size="small" color="success" label="已发布" />;
-    if (s === 'Reject' || s === 'rejected') return <Chip size="small" color="error" label={reason ? `已驳回` : '已驳回'} />;
-    if (s === 'offline') return <Chip size="small" color="warning" label="已下线" />;
-    return <Chip size="small" color="info" label="审核中" />;
-  }
-
-  function openMenu(e) {
-    setMenuAnchor(e.currentTarget);
-  }
-
-  function closeMenu() {
-    setMenuAnchor(null);
-  }
-
-  function onProfile() {
-    closeMenu();
-    navigate('/admin/profile');
-  }
-
-  function onLogout() {
-    closeMenu();
-    dispatch(logoutAction());
-    navigate('/admin/login', { replace: true });
   }
 
   return (
@@ -344,12 +413,19 @@ export default function HotelEdit() {
                           <Box sx={{ mr: 1.5, mt: 0.5 }}>
                             <Avatar
                               variant="rounded"
-                              sx={{ width: 40, height: 40, bgcolor: active ? '#2563eb' : 'rgba(15, 23, 42, 0.08)', color: active ? '#fff' : 'rgba(15,23,42,0.7)' }}
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                bgcolor: active ? '#2563eb' : 'rgba(15, 23, 42, 0.08)',
+                                color: active ? '#fff' : 'rgba(15,23,42,0.7)',
+                              }}
                             >
                               H
                             </Avatar>
                           </Box>
+
                           <ListItemText
+                            disableTypography
                             primary={
                               <Typography sx={{ fontWeight: 700, color: active ? '#2563eb' : 'text.primary' }}>
                                 {item.nameZh}
@@ -472,7 +548,79 @@ export default function HotelEdit() {
 
                 <Divider sx={{ my: 3 }} />
 
-                <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>媒体资料</Typography>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Button variant="outlined" component="label" disabled={loading}>
+                          上传图片
+                          <input hidden type="file" accept="image/*" multiple onChange={onPickImages} />
+                        </Button>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          建议 JPG/PNG/WebP
+                        </Typography>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        {(values.images || []).map((url, idx) => (
+                          <Chip
+                            key={url}
+                            label={`图片 ${idx + 1}`}
+                            component="a"
+                            href={url}
+                            target="_blank"
+                            clickable
+                            onDelete={() => removeMedia('images', idx)}
+                            sx={{ mb: 1 }}
+                          />
+                        ))}
+                        {(values.images || []).length === 0 ? (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            暂无图片
+                          </Typography>
+                        ) : null}
+                      </Stack>
+                    </Stack>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Button variant="outlined" component="label" disabled={loading}>
+                          上传视频
+                          <input hidden type="file" accept="video/*" multiple onChange={onPickVideos} />
+                        </Button>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          建议 MP4/WebM
+                        </Typography>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        {(values.videos || []).map((url, idx) => (
+                          <Chip
+                            key={url}
+                            label={`视频 ${idx + 1}`}
+                            component="a"
+                            href={url}
+                            target="_blank"
+                            clickable
+                            onDelete={() => removeMedia('videos', idx)}
+                            sx={{ mb: 1 }}
+                          />
+                        ))}
+                        {(values.videos || []).length === 0 ? (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            暂无视频
+                          </Typography>
+                        ) : null}
+                      </Stack>
+                    </Stack>
+                  </Grid>
+                </Grid>
+
+                <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 1.5, mt: 3 }}>
                   <Typography sx={{ fontWeight: 800 }}>房型管理</Typography>
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     至少添加一种房型

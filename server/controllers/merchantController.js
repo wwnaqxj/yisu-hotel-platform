@@ -24,6 +24,7 @@ function createHotel(req, res, next) {
       openTime,
       facilities,
       images,
+      videos,
       roomTypes,
     } = req.body;
 
@@ -44,6 +45,7 @@ function createHotel(req, res, next) {
           openTime,
           facilities: facilities ?? undefined,
           images: images ?? undefined,
+          videos: videos ?? undefined,
           status: 'pending',
           rejectReason: '',
           rooms: rooms.length ? { create: rooms } : undefined,
@@ -83,6 +85,7 @@ function updateHotel(req, res, next) {
             openTime: patch.openTime ?? undefined,
             facilities: patch.facilities ?? undefined,
             images: patch.images ?? undefined,
+            videos: patch.videos ?? undefined,
             status: 'pending',
             rejectReason: '',
             rooms: rooms.length
