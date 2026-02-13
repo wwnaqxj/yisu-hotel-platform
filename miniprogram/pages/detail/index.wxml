@@ -1,25 +1,126 @@
-<view class="container">
-  <view class="card">
-    <view style="font-size: 34rpx; font-weight: 600;">{{hotel.nameZh || hotel.nameEn || '酒店详情'}}</view>
-    <view style="margin-top: 10rpx; font-size:24rpx; opacity:.7;">星级：{{hotel.star || '-'}}</view>
-    <view style="margin-top: 6rpx; font-size:24rpx; opacity:.7;">地址：{{hotel.address || ''}}</view>
+<view class="page">
+  <!-- Top Nav -->
+  <view class="nav" style="padding-top: {{navTop}}px; height: {{navHeight}}px;">
+    <view class="nav-inner">
+      <view class="nav-left" bindtap="onBack">
+        <view class="nav-back">返回</view>
+      </view>
+      <view class="nav-title">{{hotel.nameZh || hotel.nameEn || '酒店详情'}}</view>
+      <view class="nav-right"></view>
+    </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
+  <view class="content" style="padding-top: {{navHeight}}px;">
+    <!-- Banner -->
+    <view class="banner">
+      <swiper class="banner-swiper" autoplay="false" circular="true" indicator-dots="true" indicator-color="rgba(255,255,255,0.5)" indicator-active-color="#ffffff">
+        <block wx:if="{{bannerImages.length > 0}}">
+          <swiper-item wx:for="{{bannerImages}}" wx:key="*this">
+            <image class="banner-img" mode="aspectFill" src="{{item}}" />
+          </swiper-item>
+        </block>
+        <block wx:else>
+          <swiper-item>
+            <view class="banner-placeholder">
+              <view class="banner-ph-title">YISU HOTEL</view>
+              <view class="banner-ph-sub">Premium Stay Experience</view>
+            </view>
+          </swiper-item>
+        </block>
+      </swiper>
+    </view>
 
-  <view class="card">
-    <view style="font-weight:600;">房型价格（从低到高）</view>
-    <view style="height: 12rpx;"></view>
+    <!-- Base Info -->
+    <view class="card">
+      <view class="title-row">
+        <view class="hotel-name">{{hotel.nameZh || hotel.nameEn || '-'}}</view>
+        <view class="star">{{hotel.star || '-' }} 星</view>
+      </view>
+      <view class="sub-row">{{hotel.nameEn || ''}}</view>
 
-    <view wx:for="{{rooms}}" wx:key="id" style="padding: 18rpx 0; border-bottom: 1rpx solid #eee;">
-      <view style="display:flex; justify-content:space-between; gap: 16rpx;">
-        <view>{{item.name}}</view>
-        <view style="font-weight:600;">¥ {{item.price}}</view>
+      <view class="kv">
+        <view class="kv-label">地址</view>
+        <view class="kv-value">{{hotel.address || '-'}}</view>
+      </view>
+
+      <view class="kv">
+        <view class="kv-label">设施</view>
+        <view class="kv-value">
+          <view class="tags" wx:if="{{facilities.length > 0}}">
+            <view class="tag" wx:for="{{facilities}}" wx:key="*this">{{item}}</view>
+          </view>
+          <view class="muted" wx:else>暂无设施信息</view>
+        </view>
       </view>
     </view>
 
-    <view wx:if="{{rooms.length === 0}}" style="font-size:24rpx; opacity:.7;">暂无房型</view>
-  </view>
+    <!-- Calendar + Guests + Nights Banner -->
+    <view class="card banner2">
+      <view class="banner2-title">入住信息</view>
+      <view class="banner2-row">
+        <view class="date-block">
+          <view class="date-label">入住</view>
+          <picker mode="date" value="{{checkIn}}" start="{{today}}" bindchange="onCheckInChange">
+            <view class="date-value">{{checkIn}}</view>
+          </picker>
+        </view>
 
-  <view wx:if="{{error}}" style="margin-top: 16rpx; color: crimson;">{{error}}</view>
+        <view class="mid">
+          <view class="nights">{{nights}} 晚</view>
+          <view class="line"></view>
+        </view>
+
+        <view class="date-block">
+          <view class="date-label">离店</view>
+          <picker mode="date" value="{{checkOut}}" start="{{today}}" bindchange="onCheckOutChange">
+            <view class="date-value">{{checkOut}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="banner2-row2">
+        <view class="counter">
+          <view class="counter-label">人数</view>
+          <view class="counter-ctl">
+            <view class="btn" bindtap="decGuests">-</view>
+            <view class="num">{{guests}}</view>
+            <view class="btn" bindtap="incGuests">+</view>
+          </view>
+        </view>
+        <view class="counter">
+          <view class="counter-label">房间</view>
+          <view class="counter-ctl">
+            <view class="btn" bindtap="decRooms">-</view>
+            <view class="num">{{roomCount}}</view>
+            <view class="btn" bindtap="incRooms">+</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Rooms -->
+    <view class="card">
+      <view class="section-title">房型价格</view>
+      <view class="section-sub">价格从低到高（按商户录入）</view>
+
+      <view class="room" wx:for="{{rooms}}" wx:key="id">
+        <view class="room-left">
+          <view class="room-name">{{item.name}}</view>
+          <view class="room-sub">可订 · 含税/服务费规则以实际为准</view>
+        </view>
+        <view class="room-right">
+          <view class="price">
+            <text class="yen">¥</text>
+            <text class="p">{{item.price}}</text>
+          </view>
+          <view class="per">每晚</view>
+        </view>
+      </view>
+
+      <view wx:if="{{rooms.length === 0}}" class="empty">暂无房型</view>
+    </view>
+
+    <view wx:if="{{error}}" class="error">{{error}}</view>
+    <view class="footer-space"></view>
+  </view>
 </view>
