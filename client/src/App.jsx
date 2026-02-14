@@ -39,7 +39,7 @@ export default function App() {
         }
       />
       <Route
-        p        ath="/admin/audit"
+        path="/admin/audit"
         element={
           <RequireRole role="admin">
             <AdminAuditList />
