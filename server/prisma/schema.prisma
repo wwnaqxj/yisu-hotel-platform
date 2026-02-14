@@ -47,6 +47,7 @@ model Hotel {
 
   facilities   Json?
   images       Json?
+  videos       Json?
   nearby       Json?
   discount     Json?
 

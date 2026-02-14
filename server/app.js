@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const hotelRoutes = require('./routes/hotel');
 const adminRoutes = require('./routes/admin');
 const merchantRoutes = require('./routes/merchant');
+const uploadRoutes = require('./routes/upload');
 const { ensureAdmin, ensureMerchant } = require('./seed');
 
 const app = express();
@@ -23,8 +24,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hotel', hotelRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/merchant', merchantRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.use((err, req, res, next) => {
+  console.error(err);
   const status = err.status || 500;
   res.status(status).json({
     message: err.message || 'Server error',
