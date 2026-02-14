@@ -2,10 +2,11 @@ import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 
-import AdminLogin from './pages/admin/Login/index.jsx';
 import MerchantHotelEdit from './pages/admin/Merchant/HotelEdit.jsx';
 import AdminAuditList from './pages/admin/Admin/AuditList.jsx';
 import Profile from './pages/admin/Profile/index.jsx';
+import SignIn from './features/auth/SignIn.jsx';
+import SignUp from './features/auth/SignUp.jsx';
 
 function RequireAuth({ children }) {
   const { token, user } = useAuth();
@@ -29,7 +30,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
-      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/login" element={<SignIn />} />
+      <Route path="/admin/register" element={<SignUp />} />
       <Route
         path="/admin/merchant/hotel-edit"
         element={
