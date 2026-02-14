@@ -11,6 +11,32 @@ function normalizeRoomItems(roomItems) {
     }));
 }
 
+function normalizeMediaList(v) {
+  if (v == null) return undefined;
+
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return undefined;
+    if (s.startsWith('[') || s.startsWith('{')) {
+      try {
+        return normalizeMediaList(JSON.parse(s));
+      } catch (e) {
+        return [s];
+      }
+    }
+    return [s];
+  }
+
+  if (Array.isArray(v)) {
+    const arr = v
+      .map((x) => (typeof x === 'string' ? x.trim() : x))
+      .filter((x) => typeof x === 'string' && x);
+    return arr.length ? arr : undefined;
+  }
+
+  return undefined;
+}
+
 function createHotel(req, res, next) {
   try {
     const prisma = getPrisma();
@@ -22,11 +48,16 @@ function createHotel(req, res, next) {
       address,
       star,
       openTime,
+      description,
       facilities,
       images,
       videos,
       roomTypes,
     } = req.body;
+
+    const imagesNorm = normalizeMediaList(images);
+    const videosNorm = normalizeMediaList(videos);
+    console.log('[merchant.createHotel] media:', { rawImages: images, rawVideos: videos, images: imagesNorm, videos: videosNorm });
 
     if (!nameZh || !nameEn || !address || !star || !openTime) {
       throw httpError(400, 'missing required fields');
@@ -43,9 +74,10 @@ function createHotel(req, res, next) {
           address,
           star: Number(star),
           openTime,
+          description: description ?? undefined,
           facilities: facilities ?? undefined,
-          images: images ?? undefined,
-          videos: videos ?? undefined,
+          images: imagesNorm,
+          videos: videosNorm,
           status: 'pending',
           rejectReason: '',
           rooms: rooms.length ? { create: rooms } : undefined,
@@ -66,6 +98,12 @@ function updateHotel(req, res, next) {
     if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
     const patch = req.body || {};
 
+    const images = patch.images;
+    const videos = patch.videos;
+    const imagesNorm = normalizeMediaList(images);
+    const videosNorm = normalizeMediaList(videos);
+    console.log('[merchant.updateHotel] media:', { rawImages: images, rawVideos: videos, images: imagesNorm, videos: videosNorm });
+
     prisma.hotel
       .findUnique({ where: { id } })
       .then((hotel) => {
@@ -83,9 +121,10 @@ function updateHotel(req, res, next) {
             address: patch.address ?? undefined,
             star: patch.star != null ? Number(patch.star) : undefined,
             openTime: patch.openTime ?? undefined,
+            description: patch.description ?? undefined,
             facilities: patch.facilities ?? undefined,
-            images: patch.images ?? undefined,
-            videos: patch.videos ?? undefined,
+            images: imagesNorm,
+            videos: videosNorm,
             status: 'pending',
             rejectReason: '',
             rooms: rooms.length

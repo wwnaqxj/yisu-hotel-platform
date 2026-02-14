@@ -14,9 +14,14 @@
     <!-- Banner -->
     <view class="banner">
       <swiper class="banner-swiper" autoplay="false" circular="true" indicator-dots="true" indicator-color="rgba(255,255,255,0.5)" indicator-active-color="#ffffff">
-        <block wx:if="{{bannerImages.length > 0}}">
-          <swiper-item wx:for="{{bannerImages}}" wx:key="*this">
-            <image class="banner-img" mode="aspectFill" src="{{item}}" />
+        <block wx:if="{{bannerMedias.length > 0}}">
+          <swiper-item wx:for="{{bannerMedias}}" wx:key="url">
+            <block wx:if="{{item.type === 'video'}}">
+              <video class="banner-video" src="{{item.url}}" objectFit="cover" controls="true" show-mute-btn="true" show-fullscreen-btn="true" show-center-play-btn="true" autoplay="false" loop="false" enable-play-gesture="true" vslide-gesture="true" vslide-gesture-in-fullscreen="true" bindtap="onPreviewMedia" data-index="{{index}}" />
+            </block>
+            <block wx:else>
+              <image class="banner-img" mode="aspectFill" src="{{item.url}}" bindtap="onPreviewMedia" data-index="{{index}}" />
+            </block>
           </swiper-item>
         </block>
         <block wx:else>

@@ -71,6 +71,7 @@ async function putObjectFromBuffer({
 }
 
 module.exports = {
+  getMinioClient,
   putObjectFromBuffer,
   sanitizeFileName,
 };

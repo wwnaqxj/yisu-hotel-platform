@@ -42,6 +42,8 @@ model Hotel {
   star         Int
   openTime     String
 
+  description  String      @default("")
+
   status       HotelStatus @default(pending)
   rejectReason String      @default("")
 

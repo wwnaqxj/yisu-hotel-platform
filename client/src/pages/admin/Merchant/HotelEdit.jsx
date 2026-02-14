@@ -8,15 +8,16 @@ import {
   Avatar,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
   CircularProgress,
   Container,
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
   List,
-  ListItemButton,
-  ListItemText,
   Menu,
   MenuItem,
   Paper,
@@ -26,31 +27,112 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  useTheme,
+  alpha
 } from '@mui/material';
+import {
+  AddPhotoAlternate as AddPhotoIcon,
+  Delete as DeleteIcon,
+  Hotel as HotelIcon,
+  Save as SaveIcon,
+  Add as AddIcon,
+  Refresh as RefreshIcon,
+  LocationOn as LocationIcon,
+  Star as StarIcon,
+  Logout as LogoutIcon,
+  Person as PersonIcon,
+  VideoCameraBack as VideoIcon,
+  RoomService as RoomIcon, // 房型图标
+  Store as StoreIcon,
+  AttachMoney as MoneyIcon
+} from '@mui/icons-material';
+
 import { useApi } from '../../../hooks/useApi';
 import { useAuth } from '../../../hooks/useAuth.js';
 import { logout as logoutAction } from '../../../store/userSlice.js';
 
+// --- 工具函数：处理日期 ---
 function toDateInputValue(v) {
   if (!v) return '';
   const d = dayjs(v);
   return d.isValid() ? d.format('YYYY-MM-DD') : '';
 }
 
+// --- 1. 新增：配置你的后端地址 ---
+const API_BASE_URL = 'http://192.168.249.94:3001';
+
+// --- 2. 新增：图片地址转换函数 ---
+// 如果是本地选的图(blob)直接显示，如果是MinIO的图走后端代理
+const getMediaUrl = (url) => {
+  if (!url) return '';
+
+  const raw = String(url).trim();
+  if (!raw) return '';
+  if (raw.startsWith('blob:')) return raw;
+  if (raw.includes('/api/media/')) return raw;
+
+  // Expect: http(s)://host/<bucket>/<objectName>
+  const m = raw.match(/^https?:\/\/[^/]+\/([^/]+)\/(.+)$/);
+  if (!m) return raw;
+
+  const bucket = m[1];
+  const objectName = m[2];
+  return `${API_BASE_URL}/api/media/${encodeURIComponent(bucket)}/${objectName}`;
+};
+
+// --- 子组件：美化的上传区域 ---
+const UploadZone = ({ label, accept, onChange, icon: Icon, loading }) => (
+  <Button
+    variant="outlined"
+    component="label"
+    disabled={loading}
+    sx={{
+      width: '100%',
+      height: 120,
+      borderStyle: 'dashed',
+      borderWidth: 2,
+      borderColor: 'divider',
+      borderRadius: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 1,
+      textTransform: 'none',
+      color: 'text.secondary',
+      bgcolor: 'background.paper',
+      transition: 'all 0.2s',
+      '&:hover': {
+        borderColor: 'primary.main',
+        bgcolor: 'action.hover',
+        color: 'primary.main'
+      },
+    }}
+  >
+    {loading ? <CircularProgress size={24} /> : <Icon fontSize="large" />}
+    <Typography variant="body2" fontWeight={500}>{label}</Typography>
+    <input hidden type="file" accept={accept} multiple onChange={onChange} />
+  </Button>
+);
+
+// --- 主组件 ---
 export default function HotelEdit() {
   const api = useApi();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const theme = useTheme();
 
-  const [loading, setLoading] = useState(false);
-  const [listLoading, setListLoading] = useState(false);
+  // --- 状态管理 ---
+  const [loading, setLoading] = useState(false); // 全局/提交加载
+  const [uploadLoading, setUploadLoading] = useState(false); // 上传加载
+  const [listLoading, setListLoading] = useState(false); // 列表加载
   const [myHotels, setMyHotels] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [currentTime, setCurrentTime] = useState(dayjs().format('YYYY-MM-DD HH:mm'));
-
+  
+  // 消息提示 Snackbar
   const [snack, setSnack] = useState({ open: false, severity: 'info', message: '' });
 
+  // 表单数据
   const [values, setValues] = useState({
     nameZh: '',
     nameEn: '',
@@ -58,18 +140,22 @@ export default function HotelEdit() {
     address: '',
     star: 5,
     openTime: toDateInputValue('2020-01-01'),
+    description: '',
+    facilitiesText: '', // 文本域输入的设施，逗号分隔
     images: [],
     videos: [],
     roomTypes: [{ name: '标准间', price: 299 }],
   });
 
+  // 用户菜单锚点
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const menuOpen = Boolean(menuAnchor);
 
+  // 计算当前选中的酒店对象（用于显示状态等）
   const selectedHotel = useMemo(() => {
     return myHotels.find((h) => h.id === selectedId) || null;
   }, [myHotels, selectedId]);
 
+  // --- 初始化与定时器 ---
   useEffect(() => {
     refreshList();
     const timer = setInterval(() => {
@@ -78,6 +164,7 @@ export default function HotelEdit() {
     return () => clearInterval(timer);
   }, []);
 
+  // --- 辅助逻辑函数 ---
   function notify(severity, message) {
     setSnack({ open: true, severity, message });
   }
@@ -86,18 +173,20 @@ export default function HotelEdit() {
     setSnack((s) => ({ ...s, open: false }));
   }
 
+  // --- 业务逻辑：获取列表 ---
   async function refreshList() {
     setListLoading(true);
     try {
       const res = await api.get('/api/merchant/hotel/list');
       setMyHotels(res.data.items || []);
     } catch (e) {
-      notify('error', '加载列表失败');
+      notify('error', '加载酒店列表失败');
     } finally {
       setListLoading(false);
     }
   }
 
+  // --- 业务逻辑：重置表单（新建模式） ---
   function handleReset() {
     setSelectedId(null);
     setValues({
@@ -107,20 +196,39 @@ export default function HotelEdit() {
       address: '',
       star: 5,
       openTime: toDateInputValue('2020-01-01'),
+      description: '',
+      facilitiesText: '',
       images: [],
       videos: [],
       roomTypes: [{ name: '标准间', price: 299 }],
     });
   }
 
+  // --- 业务逻辑：选中并回显酒店 ---
   async function handleSelectHotel(id) {
-    setLoading(true);
+    setLoading(true); // 使用 loading 遮罩右侧
     try {
       const res = await api.get(`/api/merchant/hotel/${id}`);
       const h = res.data.hotel;
       const rooms = res.data.rooms || [];
 
       setSelectedId(h.id);
+      
+      // 数据处理：设施数组转字符串
+      let facilitiesStr = '';
+      if (Array.isArray(h.facilities)) {
+        facilitiesStr = h.facilities.join('，');
+      } else if (h.facilities) {
+        facilitiesStr = String(h.facilities);
+      }
+
+      // 数据处理：媒体可能为 null 或单字符串或数组
+      const ensureArray = (item) => {
+        if (!item) return [];
+        if (Array.isArray(item)) return item;
+        return [item]; // 如果是字符串，包一层
+      };
+
       setValues({
         nameZh: h.nameZh || '',
         nameEn: h.nameEn || '',
@@ -128,8 +236,10 @@ export default function HotelEdit() {
         address: h.address || '',
         star: Number(h.star || 5),
         openTime: toDateInputValue(h.openTime),
-        images: Array.isArray(h.images) ? h.images : h.images ? [h.images] : [],
-        videos: Array.isArray(h.videos) ? h.videos : h.videos ? [h.videos] : [],
+        description: h.description || '',
+        facilitiesText: facilitiesStr,
+        images: ensureArray(h.images),
+        videos: ensureArray(h.videos),
         roomTypes:
           rooms.length > 0
             ? rooms.map((r) => ({ name: r.name || '', price: Number(r.price || 0) }))
@@ -142,6 +252,7 @@ export default function HotelEdit() {
     }
   }
 
+  // --- 表单字段更新 ---
   function setField(key, value) {
     setValues((v) => ({ ...v, [key]: value }));
   }
@@ -171,11 +282,12 @@ export default function HotelEdit() {
   async function uploadOne(file, type) {
     const form = new FormData();
     form.append('file', file);
-
     const res = await api.post(`/api/upload/single?type=${encodeURIComponent(type)}`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return res.data?.url;
+    const url = res.data?.url;
+    if (!url) throw new Error('未返回 URL');
+    return url;
   }
 
   async function onPickImages(e) {
@@ -183,19 +295,45 @@ export default function HotelEdit() {
     e.target.value = '';
     if (!files.length) return;
 
-    setLoading(true);
+    const localUrls = files.map((f) => URL.createObjectURL(f));
+    setValues((v) => ({ ...v, images: [...(v.images || []), ...localUrls] }));
+
+    setUploadLoading(true);
     try {
-      const urls = [];
+      const remoteUrls = [];
       for (const f of files) {
         const url = await uploadOne(f, 'image');
-        if (url) urls.push(url);
+        if (url) remoteUrls.push(url);
       }
-      setValues((v) => ({ ...v, images: [...(v.images || []), ...urls] }));
-      notify('success', '图片上传成功');
+
+      setValues((v) => {
+        const next = Array.isArray(v.images) ? v.images.slice() : [];
+        let ri = 0;
+        for (let i = 0; i < next.length; i += 1) {
+          if (ri >= remoteUrls.length) break;
+          if (localUrls.includes(next[i])) {
+            try {
+              URL.revokeObjectURL(next[i]);
+            } catch (e2) {
+              // ignore
+            }
+            next[i] = remoteUrls[ri];
+            ri += 1;
+          }
+        }
+        if (ri < remoteUrls.length) next.push(...remoteUrls.slice(ri));
+        return { ...v, images: next };
+      });
+
+      notify('success', `成功上传 ${remoteUrls.length} 张图片`);
     } catch (err) {
-      notify('error', err.message || '图片上传失败');
+      setValues((v) => {
+        const next = Array.isArray(v.images) ? v.images.filter((u) => !localUrls.includes(u)) : [];
+        return { ...v, images: next };
+      });
+      notify('error', '图片上传失败: ' + err.message);
     } finally {
-      setLoading(false);
+      setUploadLoading(false);
     }
   }
 
@@ -204,84 +342,92 @@ export default function HotelEdit() {
     e.target.value = '';
     if (!files.length) return;
 
-    setLoading(true);
+    const localUrls = files.map((f) => URL.createObjectURL(f));
+    setValues((v) => ({ ...v, videos: [...(v.videos || []), ...localUrls] }));
+
+    setUploadLoading(true);
     try {
-      const urls = [];
+      const remoteUrls = [];
       for (const f of files) {
         const url = await uploadOne(f, 'video');
-        if (url) urls.push(url);
+        if (url) remoteUrls.push(url);
       }
-      setValues((v) => ({ ...v, videos: [...(v.videos || []), ...urls] }));
-      notify('success', '视频上传成功');
+
+      setValues((v) => {
+        const next = Array.isArray(v.videos) ? v.videos.slice() : [];
+        let ri = 0;
+        for (let i = 0; i < next.length; i += 1) {
+          if (ri >= remoteUrls.length) break;
+          if (localUrls.includes(next[i])) {
+            try {
+              URL.revokeObjectURL(next[i]);
+            } catch (e2) {
+              // ignore
+            }
+            next[i] = remoteUrls[ri];
+            ri += 1;
+          }
+        }
+        if (ri < remoteUrls.length) next.push(...remoteUrls.slice(ri));
+        return { ...v, videos: next };
+      });
+
+      notify('success', `成功上传 ${remoteUrls.length} 个视频`);
     } catch (err) {
-      notify('error', err.message || '视频上传失败');
+      setValues((v) => {
+        const next = Array.isArray(v.videos) ? v.videos.filter((u) => !localUrls.includes(u)) : [];
+        return { ...v, videos: next };
+      });
+      notify('error', '视频上传失败: ' + err.message);
     } finally {
-      setLoading(false);
+      setUploadLoading(false);
     }
   }
 
   function removeMedia(kind, index) {
     setValues((v) => {
       const arr = Array.isArray(v[kind]) ? v[kind].slice() : [];
-      arr.splice(index, 1);
+      const removed = arr.splice(index, 1);
+      const u = removed && removed[0];
+      if (typeof u === 'string' && u.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch (e2) {
+          // ignore
+        }
+      }
       return { ...v, [kind]: arr };
     });
   }
 
-  function getStatusChip(status, reason) {
-    const s = String(status || 'pending');
-    if (s === 'Pass' || s === 'approved') return <Chip size="small" color="success" label="已发布" />;
-    if (s === 'Reject' || s === 'rejected') return <Chip size="small" color="error" label={reason ? `已驳回` : '已驳回'} />;
-    if (s === 'offline') return <Chip size="small" color="warning" label="已下线" />;
-    return <Chip size="small" color="info" label="审核中" />;
-  }
-
-  function openMenu(e) {
-    setMenuAnchor(e.currentTarget);
-  }
-
-  function closeMenu() {
-    setMenuAnchor(null);
-  }
-
-  function onProfile() {
-    closeMenu();
-    navigate('/admin/profile');
-  }
-
-  function onLogout() {
-    closeMenu();
-    dispatch(logoutAction());
-    navigate('/admin/login', { replace: true });
-  }
-
   function validate() {
-    if (!values.nameZh?.trim()) return '请输入中文名称';
-    if (!values.nameEn?.trim()) return '请输入英文名称';
-    if (!values.city?.trim()) return '请输入城市';
+    if (!values.nameZh?.trim()) return '请输入酒店中文名称';
+    if (!values.nameEn?.trim()) return '请输入酒店英文名称';
+    if (!values.city?.trim()) return '请输入所在城市';
     if (!values.address?.trim()) return '请输入详细地址';
-
     const star = Number(values.star);
     if (!Number.isFinite(star) || star < 1 || star > 5) return '星级需为 1~5';
     if (!values.openTime) return '请选择开业时间';
-
     if (!Array.isArray(values.roomTypes) || values.roomTypes.length < 1) return '至少需要添加一个房型';
     for (let i = 0; i < values.roomTypes.length; i += 1) {
       const r = values.roomTypes[i];
-      if (!r?.name?.trim()) return '房型名称不能为空';
+      if (!r?.name?.trim()) return `第 ${i + 1} 个房型名称不能为空`;
       const price = Number(r.price);
-      if (!Number.isFinite(price) || price < 0) return '房型价格不合法';
+      if (!Number.isFinite(price) || price < 0) return `第 ${i + 1} 个房型价格无效`;
     }
     return '';
+  }
+
+  function normalizeFacilities(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return [];
+    return raw.split(/[\n\r,，、;；]+/).map((s) => s.trim()).filter(Boolean);
   }
 
   async function onSubmit(e) {
     e.preventDefault();
     const msg = validate();
-    if (msg) {
-      notify('warning', msg);
-      return;
-    }
+    if (msg) return notify('warning', msg);
 
     setLoading(true);
     try {
@@ -292,6 +438,8 @@ export default function HotelEdit() {
         address: values.address,
         star: Number(values.star),
         openTime: values.openTime,
+        description: values.description,
+        facilities: normalizeFacilities(values.facilitiesText),
         images: values.images,
         videos: values.videos,
         roomTypes: values.roomTypes.map((r) => ({ name: r.name, price: Number(r.price) })),
@@ -299,10 +447,10 @@ export default function HotelEdit() {
 
       if (selectedId) {
         await api.put(`/api/merchant/hotel/${selectedId}`, payload);
-        notify('success', '更新成功，已提交审核');
+        notify('success', '更新成功');
       } else {
         await api.post('/api/merchant/hotel', payload);
-        notify('success', '创建成功，已提交审核');
+        notify('success', '创建成功');
       }
 
       await refreshList();
@@ -314,370 +462,356 @@ export default function HotelEdit() {
     }
   }
 
+  const getStatusChip = (status) => {
+    const s = String(status || 'pending').toLowerCase();
+    let color = 'default';
+    let label = '审核中';
+    if (s === 'pass' || s === 'approved') {
+      color = 'success';
+      label = '已发布';
+    } else if (s === 'reject' || s === 'rejected') {
+      color = 'error';
+      label = '已驳回';
+    } else if (s === 'offline') {
+      color = 'warning';
+      label = '已下线';
+    }
+    return <Chip label={label} color={color} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 'bold' }} />;
+  };
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f6fa' }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#0b1530', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <Toolbar sx={{ minHeight: 64, display: 'flex', justifyContent: 'space-between' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          bgcolor: '#0f172a',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 1201
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 1.5,
-                bgcolor: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                color: '#fff',
-                letterSpacing: 1,
-              }}
-            >
-              Y
-            </Box>
+            <Avatar variant="rounded" sx={{ bgcolor: theme.palette.primary.main, fontWeight: 'bold', width: 36, height: 36 }}>
+              <StoreIcon fontSize="small" />
+            </Avatar>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+              <Typography variant="subtitle1" fontWeight={700} color="white" lineHeight={1.2}>
                 易宿商户中心
               </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.65 }}>
+              <Typography variant="caption" color="rgba(255,255,255,0.5)">
                 {currentTime}
               </Typography>
             </Box>
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            <Tooltip title="账号">
-              <IconButton onClick={openMenu} size="small" sx={{ color: '#fff' }}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: '#2563eb', fontSize: 14 }}>
-                  {(user?.username || 'A').slice(0, 1).toUpperCase()}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
-            <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>
-              {user?.username || 'Account'}
-            </Typography>
-            <Menu anchorEl={menuAnchor} open={menuOpen} onClose={closeMenu}>
-              <MenuItem onClick={onProfile}>个人中心</MenuItem>
+            <Chip
+              avatar={<Avatar sx={{ bgcolor: theme.palette.primary.dark, color: '#fff' }}>{(user?.username || 'A')[0]}</Avatar>}
+              label={user?.username || 'Merchant'}
+              onClick={(ev) => setMenuAnchor(ev.currentTarget)}
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.08)',
+                color: 'white',
+                border: '1px solid rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' }
+              }}
+            />
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+              PaperProps={{ sx: { mt: 1, minWidth: 150, borderRadius: 2 } }}
+            >
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchor(null);
+                  navigate('/admin/profile');
+                }}
+              >
+                <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> 个人中心
+              </MenuItem>
               <Divider />
-              <MenuItem onClick={onLogout} sx={{ color: 'error.main' }}>
-                退出登录
+              <MenuItem
+                onClick={() => {
+                  setMenuAnchor(null);
+                  dispatch(logoutAction());
+                  navigate('/admin/login');
+                }}
+              >
+                <LogoutIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+                <Typography color="error">退出登录</Typography>
               </MenuItem>
             </Menu>
           </Stack>
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Grid container spacing={2.5}>
-          <Grid item xs={12} md={4} lg={3}>
-            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Stack spacing={0.5}>
-                  <Typography sx={{ fontWeight: 800 }}>我的酒店</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    点击左侧酒店可回填编辑
-                  </Typography>
+      <Toolbar />
+
+      <Container maxWidth={false} sx={{ py: 3, px: 3 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
+          <Box
+            sx={{
+              width: { xs: '100%', md: 280 },
+              flexShrink: 0,
+              position: { md: 'sticky' },
+              top: 88,
+              height: { md: 'calc(100vh - 120px)' },
+              zIndex: 1,
+            }}
+          >
+            <Card
+              variant="outlined"
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 3,
+                border: 'none',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+              }}
+            >
+              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <HotelIcon color="primary" />
+                  <Typography variant="subtitle1" fontWeight={700}>我的酒店</Typography>
                 </Stack>
                 <Tooltip title="刷新列表">
-                  <span>
-                    <IconButton onClick={refreshList} disabled={listLoading}>
-                      {listLoading ? <CircularProgress size={20} /> : <Typography sx={{ fontWeight: 900 }}>↻</Typography>}
-                    </IconButton>
-                  </span>
+                  <IconButton onClick={refreshList} disabled={listLoading} size="small">
+                    {listLoading ? <CircularProgress size={20} /> : <RefreshIcon fontSize="small" />}
+                  </IconButton>
                 </Tooltip>
               </Box>
-              <Divider />
 
-              <Box sx={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
-                {listLoading ? (
-                  <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
-                    <CircularProgress />
-                  </Box>
-                ) : myHotels.length === 0 ? (
-                  <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>暂无酒店数据</Box>
+              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: '#f1f5f9', p: 1.5 }}>
+                {myHotels.length === 0 && !listLoading ? (
+                  <Stack alignItems="center" justifyContent="center" sx={{ height: '100%', opacity: 0.5 }}>
+                    <HotelIcon sx={{ fontSize: 48, mb: 1, color: 'text.disabled' }} />
+                    <Typography variant="body2">暂无数据</Typography>
+                  </Stack>
                 ) : (
-                  <List disablePadding>
+                  <Stack spacing={1.5}>
                     {myHotels.map((item) => {
                       const active = selectedId === item.id;
                       return (
-                        <ListItemButton
+                        <Card
                           key={item.id}
+                          elevation={active ? 3 : 0}
                           onClick={() => handleSelectHotel(item.id)}
-                          selected={active}
                           sx={{
-                            py: 1.5,
-                            borderLeft: active ? '4px solid #2563eb' : '4px solid transparent',
-                            alignItems: 'flex-start',
+                            p: 2,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            border: '1px solid',
+                            borderColor: active ? 'primary.main' : 'transparent',
+                            bgcolor: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                            borderRadius: 2,
+                            '&:hover': { transform: 'translateY(-2px)', bgcolor: '#fff' }
                           }}
                         >
-                          <Box sx={{ mr: 1.5, mt: 0.5 }}>
-                            <Avatar
-                              variant="rounded"
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                bgcolor: active ? '#2563eb' : 'rgba(15, 23, 42, 0.08)',
-                                color: active ? '#fff' : 'rgba(15,23,42,0.7)',
-                              }}
-                            >
-                              H
+                          <Stack direction="row" spacing={2}>
+                            <Avatar variant="rounded" sx={{ bgcolor: active ? 'primary.main' : 'grey.300', width: 40, height: 40 }}>
+                              {(item.nameZh || 'H')[0]}
                             </Avatar>
-                          </Box>
-
-                          <ListItemText
-                            disableTypography
-                            primary={
-                              <Typography sx={{ fontWeight: 700, color: active ? '#2563eb' : 'text.primary' }}>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography variant="subtitle2" noWrap fontWeight={600} color={active ? 'primary.main' : 'text.primary'}>
                                 {item.nameZh}
                               </Typography>
-                            }
-                            secondary={
-                              <Box sx={{ pt: 0.25 }}>
-                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                                  {item.nameEn}
-                                </Typography>
-                                <Stack direction="row" spacing={1} sx={{ mt: 0.75 }} alignItems="center" justifyContent="space-between">
-                                  {getStatusChip(item.status, item.rejectReason)}
-                                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                    {item.city}
-                                  </Typography>
-                                </Stack>
-                              </Box>
-                            }
-                          />
-                        </ListItemButton>
+                              <Typography variant="caption" color="text.secondary" noWrap display="block">
+                                {item.city}
+                              </Typography>
+                              <Box sx={{ mt: 1 }}>{getStatusChip(item.status)}</Box>
+                            </Box>
+                          </Stack>
+                        </Card>
                       );
                     })}
-                  </List>
+                  </Stack>
                 )}
               </Box>
-            </Paper>
-          </Grid>
+            </Card>
+          </Box>
 
-          <Grid item xs={12} md={8} lg={9}>
-            <Paper variant="outlined" sx={{ borderRadius: 2, p: 2.5, minHeight: 'calc(100vh - 160px)' }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
+          <Box sx={{ flexGrow: 1, minWidth: 0, width: '100%' }}>
+            <Box component="form" onSubmit={onSubmit}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 3 }} spacing={2}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  <Typography variant="h5" fontWeight={800} color="text.primary">
                     {selectedId ? '编辑酒店信息' : '录入新酒店'}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {selectedId && selectedHotel ? `当前：${selectedHotel.nameZh}` : '填写后提交将进入审核流程'}
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedId ? '修改信息需重新审核' : '填写完整信息以便快速通过审核'}
                   </Typography>
                 </Box>
-
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
                   {selectedId ? (
-                    <Button onClick={handleReset} variant="outlined">
-                      取消编辑
+                    <Button variant="outlined" color="inherit" onClick={handleReset} startIcon={<AddIcon />}>
+                      录入新酒店
                     </Button>
                   ) : null}
-                  <Button onClick={handleReset} variant={selectedId ? 'text' : 'contained'}>
-                    新建录入
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                    disabled={loading}
+                    sx={{ px: 4, borderRadius: 2, boxShadow: 4 }}
+                  >
+                    {selectedId ? '保存修改' : '立即创建'}
                   </Button>
                 </Stack>
               </Stack>
 
-              <Divider sx={{ my: 2 }} />
+              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
+                    <Box sx={{ width: 4, height: 26, bgcolor: 'primary.main', borderRadius: 4 }} />
+                    <Typography variant="h6" fontWeight={700}>基本信息</Typography>
+                  </Stack>
 
-              <Box component="form" onSubmit={onSubmit}>
-                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>基本信息</Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="酒店名称 (中文)" value={values.nameZh} onChange={(ev) => setField('nameZh', ev.target.value)} fullWidth required />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField label="酒店名称 (英文)" value={values.nameEn} onChange={(ev) => setField('nameEn', ev.target.value)} fullWidth required />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="所在城市"
+                        value={values.city}
+                        onChange={(ev) => setField('city', ev.target.value)}
+                        fullWidth
+                        required
+                        InputProps={{ startAdornment: <InputAdornment position="start"><LocationIcon color="action" fontSize="small" /></InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="酒店星级"
+                        type="number"
+                        value={values.star}
+                        onChange={(ev) => setField('star', ev.target.value)}
+                        fullWidth
+                        required
+                        InputProps={{
+                          inputProps: { min: 1, max: 5 },
+                          startAdornment: <InputAdornment position="start"><StarIcon sx={{ color: '#f59e0b' }} fontSize="small" /></InputAdornment>
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField label="开业时间" type="date" value={values.openTime} onChange={(ev) => setField('openTime', ev.target.value)} fullWidth required InputLabelProps={{ shrink: true }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField label="详细地址" value={values.address} onChange={(ev) => setField('address', ev.target.value)} fullWidth required multiline rows={2} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField label="酒店简介" value={values.description} onChange={(ev) => setField('description', ev.target.value)} fullWidth multiline rows={3} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField label="设施服务 (逗号分隔)" value={values.facilitiesText} onChange={(ev) => setField('facilitiesText', ev.target.value)} fullWidth />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
 
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      label="酒店名（中文）"
-                      value={values.nameZh}
-                      onChange={(e) => setField('nameZh', e.target.value)}
-                      fullWidth
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      label="酒店名（英文）"
-                      value={values.nameEn}
-                      onChange={(e) => setField('nameEn', e.target.value)}
-                      fullWidth
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="所在城市"
-                      value={values.city}
-                      onChange={(e) => setField('city', e.target.value)}
-                      fullWidth
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="酒店星级"
-                      type="number"
-                      value={values.star}
-                      onChange={(e) => setField('star', e.target.value)}
-                      fullWidth
-                      inputProps={{ min: 1, max: 5 }}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      label="开业时间"
-                      type="date"
-                      value={values.openTime}
-                      onChange={(e) => setField('openTime', e.target.value)}
-                      fullWidth
-                      required
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      label="详细地址"
-                      value={values.address}
-                      onChange={(e) => setField('address', e.target.value)}
-                      fullWidth
-                      required
-                      multiline
-                      minRows={2}
-                    />
-                  </Grid>
-                </Grid>
+              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
+                    <Box sx={{ width: 4, height: 26, bgcolor: 'secondary.main', borderRadius: 4 }} />
+                    <Typography variant="h6" fontWeight={700}>媒体资料</Typography>
+                  </Stack>
 
-                <Divider sx={{ my: 3 }} />
-
-                <Typography sx={{ fontWeight: 800, mb: 1.5 }}>媒体资料</Typography>
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Stack spacing={1}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Button variant="outlined" component="label" disabled={loading}>
-                          上传图片
-                          <input hidden type="file" accept="image/*" multiple onChange={onPickImages} />
-                        </Button>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          建议 JPG/PNG/WebP
-                        </Typography>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                  <Grid container spacing={4}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>酒店图片</Typography>
+                      <UploadZone label="上传图片" accept="image/*" onChange={onPickImages} icon={AddPhotoIcon} loading={uploadLoading} />
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 2 }}>
                         {(values.images || []).map((url, idx) => (
-                          <Chip
-                            key={url}
-                            label={`图片 ${idx + 1}`}
-                            component="a"
-                            href={url}
-                            target="_blank"
-                            clickable
-                            onDelete={() => removeMedia('images', idx)}
-                            sx={{ mb: 1 }}
-                          />
+                          <Box key={idx} sx={{ position: 'relative', width: 96, height: 96, borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0', '&:hover .delete-btn': { opacity: 1 } }}>
+                            <img src={getMediaUrl(url)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <IconButton className="delete-btn" onClick={() => removeMedia('images', idx)} size="small" sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(239, 68, 68, 0.9)', color: 'white', opacity: 0, '&:hover': { bgcolor: 'error.main' }, p: 0.5 }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         ))}
-                        {(values.images || []).length === 0 ? (
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            暂无图片
-                          </Typography>
-                        ) : null}
-                      </Stack>
-                    </Stack>
-                  </Grid>
+                      </Box>
+                    </Grid>
 
-                  <Grid item xs={12} md={6}>
-                    <Stack spacing={1}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Button variant="outlined" component="label" disabled={loading}>
-                          上传视频
-                          <input hidden type="file" accept="video/*" multiple onChange={onPickVideos} />
-                        </Button>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          建议 MP4/WebM
-                        </Typography>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>宣传视频</Typography>
+                      <UploadZone label="上传视频" accept="video/*" onChange={onPickVideos} icon={VideoIcon} loading={uploadLoading} />
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 2 }}>
                         {(values.videos || []).map((url, idx) => (
-                          <Chip
-                            key={url}
-                            label={`视频 ${idx + 1}`}
-                            component="a"
-                            href={url}
-                            target="_blank"
-                            clickable
-                            onDelete={() => removeMedia('videos', idx)}
-                            sx={{ mb: 1 }}
-                          />
+                          <Box key={idx} sx={{ position: 'relative', width: 180, height: 110, borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0', bgcolor: '#000', '&:hover .delete-btn': { opacity: 1 } }}>
+                            <video src={getMediaUrl(url)} muted controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <IconButton className="delete-btn" onClick={() => removeMedia('videos', idx)} size="small" sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(239, 68, 68, 0.9)', color: 'white', opacity: 0, '&:hover': { bgcolor: 'error.main' }, p: 0.5 }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         ))}
-                        {(values.videos || []).length === 0 ? (
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            暂无视频
-                          </Typography>
-                        ) : null}
-                      </Stack>
-                    </Stack>
+                      </Box>
+                    </Grid>
                   </Grid>
-                </Grid>
+                </CardContent>
+              </Card>
 
-                <Stack direction="row" spacing={1} alignItems="baseline" sx={{ mb: 1.5, mt: 3 }}>
-                  <Typography sx={{ fontWeight: 800 }}>房型管理</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    至少添加一种房型
-                  </Typography>
-                </Stack>
-
-                <Paper variant="outlined" sx={{ borderStyle: 'dashed', borderRadius: 2, p: 2, bgcolor: 'rgba(15, 23, 42, 0.02)' }}>
-                  <Stack spacing={2}>
-                    {values.roomTypes.map((r, idx) => (
-                      <Grid container spacing={2} key={idx} alignItems="center">
-                        <Grid item xs={12} md={6}>
-                          <TextField
-                            label={idx === 0 ? '房型名称' : '房型名称'}
-                            value={r.name}
-                            onChange={(e) => setRoomField(idx, 'name', e.target.value)}
-                            fullWidth
-                            required
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            label={idx === 0 ? '价格（元）' : '价格（元）'}
-                            type="number"
-                            value={r.price}
-                            onChange={(e) => setRoomField(idx, 'price', e.target.value)}
-                            fullWidth
-                            required
-                            inputProps={{ min: 0 }}
-                          />
-                        </Grid>
-                        <Grid item xs={12} md={2}>
-                          <Button color="error" variant="text" onClick={() => removeRoom(idx)}>
-                            删除
-                          </Button>
-                        </Grid>
-                      </Grid>
-                    ))}
-
-                    <Button variant="outlined" onClick={addRoom}>
+              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Box sx={{ width: 4, height: 26, bgcolor: 'success.main', borderRadius: 4 }} />
+                      <Typography variant="h6" fontWeight={700}>房型价格</Typography>
+                    </Stack>
+                    <Button startIcon={<AddIcon />} variant="outlined" color="success" onClick={addRoom} size="small">
                       添加房型
                     </Button>
                   </Stack>
-                </Paper>
 
-                <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 3 }}>
-                  <Button type="submit" variant="contained" disabled={loading}>
-                    {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : selectedId ? '保存修改' : '立即创建'}
-                  </Button>
-                </Stack>
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
+                  <Grid container spacing={2}>
+                    {values.roomTypes.map((r, idx) => (
+                      <Grid item xs={12} md={6} key={idx}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2, borderLeft: '4px solid', borderLeftColor: 'success.light', '&:hover': { boxShadow: 2 } }}>
+                          <Avatar sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: 'success.main' }}>
+                            <RoomIcon />
+                          </Avatar>
+                          <Box sx={{ flex: 1 }}>
+                            <TextField
+                              variant="standard"
+                              placeholder="房型名称 (如: 豪华大床房)"
+                              value={r.name}
+                              onChange={(ev) => setRoomField(idx, 'name', ev.target.value)}
+                              fullWidth
+                              InputProps={{ disableUnderline: true, style: { fontWeight: 600, fontSize: '0.95rem' } }}
+                            />
+                            <TextField
+                              variant="standard"
+                              placeholder="0"
+                              type="number"
+                              value={r.price}
+                              onChange={(ev) => setRoomField(idx, 'price', ev.target.value)}
+                              InputProps={{ disableUnderline: true, style: { color: theme.palette.success.dark, fontWeight: 500 } }}
+                            />
+                          </Box>
+                          <IconButton onClick={() => removeRoom(idx)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+        </Stack>
       </Container>
 
-      <Snackbar open={snack.open} autoHideDuration={2600} onClose={closeSnack} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={closeSnack} severity={snack.severity} variant="filled" sx={{ width: '100%' }}>
+      <Snackbar open={snack.open} autoHideDuration={3000} onClose={closeSnack} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={closeSnack} severity={snack.severity} variant="filled" sx={{ width: '100%', boxShadow: 4, fontWeight: 500 }}>
           {snack.message}
         </Alert>
       </Snackbar>

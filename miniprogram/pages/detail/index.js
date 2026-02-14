@@ -10,7 +10,7 @@ Page({
     navTop: 0,
     navHeight: 44,
 
-    bannerImages: [],
+    bannerMedias: [],
     facilities: [],
 
     checkIn: '',
@@ -151,10 +151,94 @@ Page({
     });
   },
 
-  normalizeImages(images) {
-    const val = images;
-    if (Array.isArray(val)) return val.filter(Boolean);
+  onPreviewMedia(e) {
+    const idx = Number(e?.currentTarget?.dataset?.index);
+    const { bannerMedias } = this.data;
+    const i = Number.isFinite(idx) ? idx : 0;
+    const list = Array.isArray(bannerMedias) ? bannerMedias : [];
+    if (!list.length) return;
+
+    const hasPreviewMedia = typeof wx.previewMedia === 'function';
+    if (hasPreviewMedia) {
+      const sources = list
+        .filter((x) => x && x.url)
+        .map((x) => ({
+          url: x.url,
+          type: x.type === 'video' ? 'video' : 'image',
+        }));
+
+      wx.previewMedia({
+        sources,
+        current: Math.min(Math.max(0, i), Math.max(0, sources.length - 1)),
+      });
+      return;
+    }
+
+    const images = list.filter((x) => x && x.type !== 'video' && x.url).map((x) => x.url);
+    if (!images.length) return;
+    const currentUrl = list[i] && list[i].type !== 'video' ? list[i].url : images[0];
+    wx.previewImage({
+      urls: images,
+      current: currentUrl,
+    });
+  },
+
+  normalizeMediaList(value) {
+    if (!value) return [];
+
+    // Prisma Json field may arrive as array/object, but in some cases could be a JSON string.
+    if (Array.isArray(value)) return value.filter(Boolean).map((v) => String(v));
+
+    if (typeof value === 'string') {
+      const s = value.trim();
+      if (!s) return [];
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map((v) => String(v));
+        if (typeof parsed === 'string') return [parsed].filter(Boolean).map((v) => String(v));
+        return [];
+      } catch (e) {
+        // treat as a single URL
+        return [s];
+      }
+    }
+
+    // Some backends may store as { list: [...] } or similar.
+    if (typeof value === 'object') {
+      const list = value.list || value.urls || value.items;
+      if (Array.isArray(list)) return list.filter(Boolean).map((v) => String(v));
+    }
+
     return [];
+  },
+
+  buildBannerMedias(hotel) {
+    const images = this.normalizeMediaList(hotel?.images);
+    const videos = this.normalizeMediaList(hotel?.videos);
+
+    const medias = [];
+    images.forEach((url) => medias.push({ type: 'image', url: this.toMediaProxyUrl(url) }));
+    videos.forEach((url) => medias.push({ type: 'video', url: this.toMediaProxyUrl(url) }));
+    return medias;
+  },
+
+  toMediaProxyUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    // If already proxied.
+    if (/\/api\/media\//.test(raw)) return raw;
+
+    // Try to extract: http(s)://host/<bucket>/<objectName>
+    const m = raw.match(/^https?:\/\/[^/]+\/([^/]+)\/(.+)$/);
+    if (!m) return raw;
+
+    const bucket = m[1];
+    const objectName = m[2];
+
+    const app = getApp();
+    const baseURL = app?.globalData?.baseURL || 'http://localhost:3001';
+    return `${baseURL}/api/media/${encodeURIComponent(bucket)}/${objectName}`;
   },
 
   normalizeFacilities(facilities) {
@@ -182,9 +266,9 @@ Page({
           city: '上海',
           facilities: ['免费 WiFi', '停车场', '健身房', '早餐']
         },
-        bannerImages: [
-          'https://images.unsplash.com/photo-1501117716987-c8e1ecb210ff?auto=format&fit=crop&w=1200&q=60',
-          'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=60'
+        bannerMedias: [
+          { type: 'image', url: 'https://images.unsplash.com/photo-1501117716987-c8e1ecb210ff?auto=format&fit=crop&w=1200&q=60' },
+          { type: 'image', url: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=60' },
         ],
         facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
         rooms: [{ id: 'r1', name: '标准间', price: 299 }]
@@ -196,9 +280,9 @@ Page({
       const data = await request({ url: `/api/hotel/detail/${id}` });
       const hotel = data.hotel || {};
       const rooms = (data.rooms || []).slice().sort((a, b) => Number(a.price) - Number(b.price));
-      const bannerImages = this.normalizeImages(hotel.images);
+      const bannerMedias = this.buildBannerMedias(hotel);
       const facilities = this.normalizeFacilities(hotel.facilities);
-      this.setData({ hotel, rooms, bannerImages, facilities });
+      this.setData({ hotel, rooms, bannerMedias, facilities });
     } catch (e) {
       this.setData({ error: e.message || '加载失败' });
     }
