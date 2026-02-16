@@ -53,6 +53,8 @@ function createHotel(req, res, next) {
       images,
       videos,
       roomTypes,
+      lng,
+      lat,
     } = req.body;
 
     const imagesNorm = normalizeMediaList(images);
@@ -74,6 +76,8 @@ function createHotel(req, res, next) {
           address,
           star: Number(star),
           openTime,
+          lng: lng != null && lng !== '' ? Number(lng) : undefined,
+          lat: lat != null && lat !== '' ? Number(lat) : undefined,
           description: description ?? undefined,
           facilities: facilities ?? undefined,
           images: imagesNorm,
@@ -98,6 +102,9 @@ function updateHotel(req, res, next) {
     if (!Number.isFinite(id)) throw httpError(400, 'invalid id');
     const patch = req.body || {};
 
+    const lng = patch.lng;
+    const lat = patch.lat;
+
     const images = patch.images;
     const videos = patch.videos;
     const imagesNorm = normalizeMediaList(images);
@@ -121,6 +128,8 @@ function updateHotel(req, res, next) {
             address: patch.address ?? undefined,
             star: patch.star != null ? Number(patch.star) : undefined,
             openTime: patch.openTime ?? undefined,
+            lng: lng != null && lng !== '' ? Number(lng) : undefined,
+            lat: lat != null && lat !== '' ? Number(lat) : undefined,
             description: patch.description ?? undefined,
             facilities: patch.facilities ?? undefined,
             images: imagesNorm,

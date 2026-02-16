@@ -53,6 +53,9 @@ model Hotel {
   nearby       Json?
   discount     Json?
 
+  lng          Float?
+  lat          Float?
+
   rooms        Room[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

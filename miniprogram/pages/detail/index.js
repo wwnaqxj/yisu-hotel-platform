@@ -9,6 +9,8 @@ Page({
 
     navTop: 0,
     navHeight: 44,
+    navTotal: 44,
+    navSafe: 68,
 
     bannerMedias: [],
     facilities: [],
@@ -41,11 +43,19 @@ Page({
     try {
       const sys = wx.getSystemInfoSync();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const navTop = menu.top;
-      const navHeight = menu.height + (menu.top - sys.statusBarHeight) * 2;
-      this.setData({ navTop, navHeight });
+
+      const statusBarHeight = Number(sys.statusBarHeight || 0);
+      const navTop = statusBarHeight;
+
+      const gap = Math.max(0, menu.top - statusBarHeight);
+      const navHeight = menu.height + gap * 2;
+      const navTotal = navTop + navHeight;
+
+      const navSafe = navTotal + 24;
+
+      this.setData({ navTop, navHeight, navTotal, navSafe });
     } catch (e) {
-      this.setData({ navTop: 0, navHeight: 44 });
+      this.setData({ navTop: 0, navHeight: 44, navTotal: 44, navSafe: 68 });
     }
   },
 
@@ -236,9 +246,14 @@ Page({
     const bucket = m[1];
     const objectName = m[2];
 
+    const objectNameEncoded = objectName
+      .split('/')
+      .map((seg) => encodeURIComponent(seg))
+      .join('/');
+
     const app = getApp();
     const baseURL = app?.globalData?.baseURL || 'http://localhost:3001';
-    return `${baseURL}/api/media/${encodeURIComponent(bucket)}/${objectName}`;
+    return `${baseURL}/api/media/${encodeURIComponent(bucket)}/${objectNameEncoded}`;
   },
 
   normalizeFacilities(facilities) {

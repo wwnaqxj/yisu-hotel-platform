@@ -6,6 +6,7 @@ import {
   Alert,
   AppBar,
   Avatar,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -37,7 +38,6 @@ import {
   Save as SaveIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
-  LocationOn as LocationIcon,
   Star as StarIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
@@ -51,15 +51,20 @@ import { useApi } from '../../../hooks/useApi';
 import { useAuth } from '../../../hooks/useAuth.js';
 import { logout as logoutAction } from '../../../store/userSlice.js';
 
+import pcaa from 'china-area-data';
+
+import HotelMap from './HotelMap.jsx';
+
 // --- 工具函数：处理日期 ---
 function toDateInputValue(v) {
   if (!v) return '';
+
   const d = dayjs(v);
   return d.isValid() ? d.format('YYYY-MM-DD') : '';
 }
 
 // --- 1. 新增：配置你的后端地址 ---
-const API_BASE_URL = 'http://192.168.249.94:3001';
+const API_BASE_URL = 'http://192.168.88.1:3001';
 
 // --- 2. 新增：图片地址转换函数 ---
 // 如果是本地选的图(blob)直接显示，如果是MinIO的图走后端代理
@@ -121,14 +126,37 @@ export default function HotelEdit() {
   const { user } = useAuth();
   const theme = useTheme();
 
+  const municipalityNames = useMemo(() => new Set(['北京市', '天津市', '上海市', '重庆市']), []);
+
+  const provinceOptions = useMemo(() => {
+    const provinces = pcaa?.['86'] || {};
+    return Object.entries(provinces).map(([code, name]) => ({ code, name }));
+  }, []);
+
+  const cityIndex = useMemo(() => {
+    const provinces = pcaa?.['86'] || {};
+    const idx = new Map();
+    Object.keys(provinces).forEach((provCode) => {
+      const cities = pcaa?.[provCode] || {};
+      Object.entries(cities).forEach(([cityCode, cityName]) => {
+        const key = String(cityName);
+        if (!idx.has(key)) idx.set(key, []);
+        idx.get(key).push({ provinceCode: provCode, cityCode, cityName });
+      });
+    });
+    return idx;
+  }, []);
+
   // --- 状态管理 ---
   const [loading, setLoading] = useState(false); // 全局/提交加载
   const [uploadLoading, setUploadLoading] = useState(false); // 上传加载
   const [listLoading, setListLoading] = useState(false); // 列表加载
   const [myHotels, setMyHotels] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [addressEditMode, setAddressEditMode] = useState(true);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(dayjs().format('YYYY-MM-DD HH:mm'));
-  
+
   // 消息提示 Snackbar
   const [snack, setSnack] = useState({ open: false, severity: 'info', message: '' });
 
@@ -138,6 +166,12 @@ export default function HotelEdit() {
     nameEn: '',
     city: '',
     address: '',
+    provinceCode: '',
+    cityCode: '',
+    districtCode: '',
+    streetAddress: '',
+    lng: '',
+    lat: '',
     star: 5,
     openTime: toDateInputValue('2020-01-01'),
     description: '',
@@ -146,6 +180,46 @@ export default function HotelEdit() {
     videos: [],
     roomTypes: [{ name: '标准间', price: 299 }],
   });
+
+  const provinceName = useMemo(() => {
+    const provinces = pcaa?.['86'] || {};
+    return values.provinceCode ? provinces[values.provinceCode] || '' : '';
+  }, [values.provinceCode]);
+
+  const isMunicipality = useMemo(() => municipalityNames.has(provinceName), [municipalityNames, provinceName]);
+
+  const cityOptions = useMemo(() => {
+    if (!values.provinceCode) return [];
+    const cities = pcaa?.[values.provinceCode] || {};
+    return Object.entries(cities).map(([code, name]) => ({ code, name }));
+  }, [values.provinceCode]);
+
+  const cityName = useMemo(() => {
+    if (!values.provinceCode || !values.cityCode) return '';
+    const cities = pcaa?.[values.provinceCode] || {};
+    return cities[values.cityCode] || '';
+  }, [values.provinceCode, values.cityCode]);
+
+  const districtOptions = useMemo(() => {
+    if (!values.cityCode) return [];
+    const dists = pcaa?.[values.cityCode] || {};
+    return Object.entries(dists).map(([code, name]) => ({ code, name }));
+  }, [values.cityCode]);
+
+  const districtName = useMemo(() => {
+    if (!values.cityCode || !values.districtCode) return '';
+    const dists = pcaa?.[values.cityCode] || {};
+    return dists[values.districtCode] || '';
+  }, [values.cityCode, values.districtCode]);
+
+  useEffect(() => {
+    if (!values.provinceCode) return;
+    if (!isMunicipality) return;
+    const cities = pcaa?.[values.provinceCode] || {};
+    const firstCityCode = Object.keys(cities)[0] || '';
+    if (!firstCityCode) return;
+    if (!values.cityCode) setValues((v) => ({ ...v, cityCode: firstCityCode }));
+  }, [isMunicipality, values.provinceCode, values.cityCode]);
 
   // 用户菜单锚点
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -189,11 +263,18 @@ export default function HotelEdit() {
   // --- 业务逻辑：重置表单（新建模式） ---
   function handleReset() {
     setSelectedId(null);
+    setAddressEditMode(true);
     setValues({
       nameZh: '',
       nameEn: '',
       city: '',
       address: '',
+      provinceCode: '',
+      cityCode: '',
+      districtCode: '',
+      streetAddress: '',
+      lng: '',
+      lat: '',
       star: 5,
       openTime: toDateInputValue('2020-01-01'),
       description: '',
@@ -213,7 +294,8 @@ export default function HotelEdit() {
       const rooms = res.data.rooms || [];
 
       setSelectedId(h.id);
-      
+      setAddressEditMode(false);
+
       // 数据处理：设施数组转字符串
       let facilitiesStr = '';
       if (Array.isArray(h.facilities)) {
@@ -229,15 +311,32 @@ export default function HotelEdit() {
         return [item]; // 如果是字符串，包一层
       };
 
+      let provinceCode = '';
+      let cityCode = '';
+      if (h.city) {
+        const matches = cityIndex.get(String(h.city)) || [];
+        if (matches.length === 1) {
+          provinceCode = matches[0].provinceCode;
+          cityCode = matches[0].cityCode;
+        }
+      }
+
       setValues({
         nameZh: h.nameZh || '',
         nameEn: h.nameEn || '',
         city: h.city || '',
         address: h.address || '',
+        provinceCode,
+        cityCode,
+        districtCode: '',
+        streetAddress: h.address || '',
+        lng: h.lng != null ? String(h.lng) : '',
+        lat: h.lat != null ? String(h.lat) : '',
         star: Number(h.star || 5),
         openTime: toDateInputValue(h.openTime),
         description: h.description || '',
         facilitiesText: facilitiesStr,
+
         images: ensureArray(h.images),
         videos: ensureArray(h.videos),
         roomTypes:
@@ -403,12 +502,17 @@ export default function HotelEdit() {
   function validate() {
     if (!values.nameZh?.trim()) return '请输入酒店中文名称';
     if (!values.nameEn?.trim()) return '请输入酒店英文名称';
-    if (!values.city?.trim()) return '请输入所在城市';
-    if (!values.address?.trim()) return '请输入详细地址';
+    if (addressEditMode) {
+      if (!values.provinceCode) return '请选择省份';
+      if (!values.cityCode) return '请选择城市/直辖市';
+      if (!values.districtCode) return '请选择区/县';
+      if (!values.streetAddress?.trim()) return '请输入街道地址';
+    }
     const star = Number(values.star);
     if (!Number.isFinite(star) || star < 1 || star > 5) return '星级需为 1~5';
     if (!values.openTime) return '请选择开业时间';
     if (!Array.isArray(values.roomTypes) || values.roomTypes.length < 1) return '至少需要添加一个房型';
+
     for (let i = 0; i < values.roomTypes.length; i += 1) {
       const r = values.roomTypes[i];
       if (!r?.name?.trim()) return `第 ${i + 1} 个房型名称不能为空`;
@@ -424,23 +528,58 @@ export default function HotelEdit() {
     return raw.split(/[\n\r,，、;；]+/).map((s) => s.trim()).filter(Boolean);
   }
 
+  const cityForMap = addressEditMode ? (isMunicipality ? provinceName : cityName) : (values.city || '');
+  const addressForGeo = addressEditMode
+    ? `${provinceName || ''}${isMunicipality ? '' : (cityName || '')}${districtName || ''}${values.streetAddress || ''}`
+    : (values.address || '');
+
+  async function autoGeocodeFromAddress() {
+    const keyword = String(addressForGeo || '').trim();
+    if (!keyword) return notify('warning', '请先填写地址');
+
+    setGeoLoading(true);
+    try {
+      const res = await api.post('/api/geo/geocode', {
+        keyword,
+        city: cityForMap || undefined,
+      });
+      const lng = res?.data?.lng;
+      const lat = res?.data?.lat;
+      if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) {
+        return notify('warning', '未解析到经纬度');
+      }
+      setValues((v) => ({ ...v, lng: String(lng), lat: String(lat) }));
+      notify('success', '已自动定位并回填经纬度');
+    } catch (e) {
+      notify('error', e?.message || '自动定位失败');
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     const msg = validate();
     if (msg) return notify('warning', msg);
+
+    const finalAddress = addressForGeo;
 
     setLoading(true);
     try {
       const payload = {
         nameZh: values.nameZh,
         nameEn: values.nameEn,
-        city: values.city,
-        address: values.address,
+        city: cityForMap,
+        address: finalAddress,
+        lng: values.lng,
+        lat: values.lat,
         star: Number(values.star),
+
         openTime: values.openTime,
         description: values.description,
         facilities: normalizeFacilities(values.facilitiesText),
         images: values.images,
+
         videos: values.videos,
         roomTypes: values.roomTypes.map((r) => ({ name: r.name, price: Number(r.price) })),
       };
@@ -678,16 +817,74 @@ export default function HotelEdit() {
                     <Grid item xs={12} md={6}>
                       <TextField label="酒店名称 (英文)" value={values.nameEn} onChange={(ev) => setField('nameEn', ev.target.value)} fullWidth required />
                     </Grid>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        label="所在城市"
-                        value={values.city}
-                        onChange={(ev) => setField('city', ev.target.value)}
-                        fullWidth
-                        required
-                        InputProps={{ startAdornment: <InputAdornment position="start"><LocationIcon color="action" fontSize="small" /></InputAdornment> }}
-                      />
-                    </Grid>
+                    {selectedId && !addressEditMode ? (
+                      <Grid item xs={12}>
+                        <Stack spacing={1.5}>
+                          <TextField label="详细地址" value={values.address || ''} fullWidth multiline rows={2} InputProps={{ readOnly: true }} />
+                          <Box>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => {
+                                setAddressEditMode(true);
+                                setValues((v) => ({
+                                  ...v,
+                                  provinceCode: v.provinceCode || '',
+                                  cityCode: v.cityCode || '',
+                                  districtCode: v.districtCode || '',
+                                  streetAddress: v.streetAddress || v.address || '',
+                                }));
+                              }}
+                            >
+                              编辑地址
+                            </Button>
+                          </Box>
+                        </Stack>
+                      </Grid>
+                    ) : (
+                      <>
+                        <Grid item xs={12} md={4}>
+                          <Autocomplete
+                            options={provinceOptions}
+                            value={provinceOptions.find((x) => x.code === values.provinceCode) || null}
+                            onChange={(e2, next) => {
+                              setValues((v) => ({
+                                ...v,
+                                provinceCode: next?.code || '',
+                                cityCode: '',
+                                districtCode: '',
+                              }));
+                            }}
+                            getOptionLabel={(opt) => (opt ? opt.name : '')}
+                            renderInput={(params) => <TextField {...params} label="省" fullWidth required />}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                          <Autocomplete
+                            options={cityOptions}
+                            value={cityOptions.find((x) => x.code === values.cityCode) || null}
+                            onChange={(e2, next) => {
+                              setValues((v) => ({ ...v, cityCode: next?.code || '', districtCode: '' }));
+                            }}
+                            getOptionLabel={(opt) => (opt ? opt.name : '')}
+                            disabled={!values.provinceCode || isMunicipality}
+                            renderInput={(params) => <TextField {...params} label="市" fullWidth required={!isMunicipality} />}
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                          <Autocomplete
+                            options={districtOptions}
+                            value={districtOptions.find((x) => x.code === values.districtCode) || null}
+                            onChange={(e2, next) => {
+                              setValues((v) => ({ ...v, districtCode: next?.code || '' }));
+                            }}
+                            getOptionLabel={(opt) => (opt ? opt.name : '')}
+                            disabled={!values.cityCode}
+                            renderInput={(params) => <TextField {...params} label="区/县" fullWidth required />}
+                          />
+                        </Grid>
+                      </>
+                    )}
                     <Grid item xs={12} md={4}>
                       <TextField
                         label="酒店星级"
@@ -705,14 +902,70 @@ export default function HotelEdit() {
                     <Grid item xs={12} md={4}>
                       <TextField label="开业时间" type="date" value={values.openTime} onChange={(ev) => setField('openTime', ev.target.value)} fullWidth required InputLabelProps={{ shrink: true }} />
                     </Grid>
-                    <Grid item xs={12}>
-                      <TextField label="详细地址" value={values.address} onChange={(ev) => setField('address', ev.target.value)} fullWidth required multiline rows={2} />
-                    </Grid>
+                    {!selectedId || addressEditMode ? (
+                      <Grid item xs={12}>
+                        <TextField
+                          label="街道地址"
+                          value={values.streetAddress}
+                          onChange={(ev) => setField('streetAddress', ev.target.value)}
+                          fullWidth
+                          required
+                          multiline
+                          rows={2}
+                          helperText={provinceName ? `将保存为：${provinceName}${isMunicipality ? '' : (cityName || '')}${districtName || ''}${values.streetAddress || ''}` : ''}
+                        />
+                      </Grid>
+                    ) : null}
+
                     <Grid item xs={12}>
                       <TextField label="酒店简介" value={values.description} onChange={(ev) => setField('description', ev.target.value)} fullWidth multiline rows={3} />
                     </Grid>
                     <Grid item xs={12}>
                       <TextField label="设施服务 (逗号分隔)" value={values.facilitiesText} onChange={(ev) => setField('facilitiesText', ev.target.value)} fullWidth />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
+                        <TextField
+                          label="经度(lng)"
+                          value={values.lng}
+                          onChange={(ev) => setField('lng', ev.target.value)}
+                          size="small"
+                          sx={{ maxWidth: 220 }}
+                        />
+                        <TextField
+                          label="纬度(lat)"
+                          value={values.lat}
+                          onChange={(ev) => setField('lat', ev.target.value)}
+                          size="small"
+                          sx={{ maxWidth: 220 }}
+                        />
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled={geoLoading}
+                          onClick={autoGeocodeFromAddress}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          {geoLoading ? '定位中...' : '根据地址自动定位'}
+                        </Button>
+                      </Stack>
+                      {(() => {
+                        const composed = `${provinceName || ''}${isMunicipality ? '' : (cityName || '')}${districtName || ''}${values.streetAddress || ''}`;
+                        const mapKeyword = composed.trim() || (values.nameZh || '').trim();
+                        return (
+                          <HotelMap
+                            api={api}
+                            lng={values.lng}
+                            lat={values.lat}
+                            defaultKeyword={mapKeyword}
+                            defaultCity={cityForMap}
+                            onChange={({ lng, lat }) => {
+                              setValues((v) => ({ ...v, lng: String(lng), lat: String(lat) }));
+                            }}
+                          />
+                        );
+                      })()}
                     </Grid>
                   </Grid>
                 </CardContent>

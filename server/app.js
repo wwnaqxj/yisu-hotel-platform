@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const merchantRoutes = require('./routes/merchant');
 const uploadRoutes = require('./routes/upload');
 const mediaRoutes = require('./routes/media');
+const geoRoutes = require('./routes/geo');
 const { ensureAdmin, ensureMerchant } = require('./seed');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/merchant', merchantRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/geo', geoRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
