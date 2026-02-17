@@ -23,7 +23,24 @@ Page({
 
     today: '',
 
-    selectedRoom: null
+    selectedRoom: null,
+
+    lng: null,
+    lat: null,
+    markers: [],
+    poisLoading: false,
+    poisError: '',
+    poisExpanded: false,
+    poiPanelOpen: false,
+    nearbySubway: [],
+    nearbySubwayTop: [],
+    nearbySubwayView: [],
+    nearbyBus: [],
+    nearbyBusTop: [],
+    nearbyBusView: [],
+    nearbyFood: [],
+    nearbyFoodTop: [],
+    nearbyFoodView: []
   },
 
   onLoad(options) {
@@ -232,6 +249,159 @@ Page({
     return medias;
   },
 
+  formatDistance(meters) {
+    const d = Number(meters);
+    if (!Number.isFinite(d) || d < 0) return '';
+    if (d < 1000) return `${Math.round(d)}m`;
+    return `${(d / 1000).toFixed(1)}km`;
+  },
+
+  buildMarkers(lng, lat) {
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return [];
+    return [
+      {
+        id: 1,
+        longitude: Number(lng),
+        latitude: Number(lat),
+        width: 28,
+        height: 28,
+        callout: {
+          content: '酒店位置',
+          display: 'ALWAYS',
+          padding: 6,
+          borderRadius: 6
+        }
+      }
+    ];
+  },
+
+  async fetchNearbyPois(lng, lat) {
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) {
+      const poisExpanded = !!this.data.poisExpanded;
+      this.setData({
+        nearbySubway: [],
+        nearbySubwayTop: [],
+        nearbySubwayView: [],
+        nearbyBus: [],
+        nearbyBusTop: [],
+        nearbyBusView: [],
+        nearbyFood: [],
+        nearbyFoodTop: [],
+        nearbyFoodView: [],
+        poisExpanded,
+      });
+      return;
+    }
+
+    this.setData({ poisLoading: true, poisError: '' });
+    try {
+      const q = (types) =>
+        request({
+          url: '/api/geo/nearby',
+          method: 'GET',
+          data: {
+            lng: Number(lng),
+            lat: Number(lat),
+            radius: 3000,
+            pageSize: 8,
+            types
+          }
+        });
+
+      const [subwayRes, busRes, foodRes] = await Promise.all([
+        q('150500'),
+        q('150700'),
+        q('050100')
+      ]);
+
+      const pick = (res) => {
+        const items = Array.isArray(res?.items) ? res.items : [];
+        return items
+          .filter((x) => x && x.name)
+          .map((x) => ({
+            id: x.id,
+            name: x.name,
+            address: x.address,
+            distance: x.distance,
+            distanceText: this.formatDistance(x.distance),
+            lng: x.lng,
+            lat: x.lat
+          }))
+          .filter((x) => Number.isFinite(Number(x.lng)) && Number.isFinite(Number(x.lat)));
+      };
+
+      const nearbySubway = pick(subwayRes);
+      const nearbySubwayTop = nearbySubway.slice(0, 1);
+      const nearbyBus = pick(busRes);
+      const nearbyBusTop = nearbyBus.slice(0, 1);
+      const nearbyFood = pick(foodRes);
+      const nearbyFoodTop = nearbyFood.slice(0, 1);
+
+      const poisExpanded = !!this.data.poisExpanded;
+
+      this.setData({
+        nearbySubway,
+        nearbySubwayTop,
+        nearbySubwayView: poisExpanded ? nearbySubway : nearbySubwayTop,
+        nearbyBus,
+        nearbyBusTop,
+        nearbyBusView: poisExpanded ? nearbyBus : nearbyBusTop,
+        nearbyFood,
+        nearbyFoodTop,
+        nearbyFoodView: poisExpanded ? nearbyFood : nearbyFoodTop,
+      });
+    } catch (e) {
+      this.setData({ poisError: e.message || '附近信息加载失败' });
+    } finally {
+      this.setData({ poisLoading: false });
+    }
+  },
+
+  onTogglePois() {
+    const next = !this.data.poisExpanded;
+    const nearbySubwayView = next ? this.data.nearbySubway : this.data.nearbySubwayTop;
+    const nearbyBusView = next ? this.data.nearbyBus : this.data.nearbyBusTop;
+    const nearbyFoodView = next ? this.data.nearbyFood : this.data.nearbyFoodTop;
+    this.setData({
+      poisExpanded: next,
+      nearbySubwayView,
+      nearbyBusView,
+      nearbyFoodView,
+    });
+  },
+
+  onOpenPoiPanel() {
+    this.setData({ poiPanelOpen: true });
+  },
+
+  onClosePoiPanel() {
+    this.setData({ poiPanelOpen: false });
+  },
+
+  onOpenLocation() {
+    const { lng, lat, hotel } = this.data;
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return;
+    wx.openLocation({
+      longitude: Number(lng),
+      latitude: Number(lat),
+      name: hotel?.nameZh || hotel?.nameEn || '酒店',
+      address: hotel?.address || ''
+    });
+  },
+
+  onOpenPoiLocation(e) {
+    const p = e?.currentTarget?.dataset || {};
+    const lng = Number(p.lng);
+    const lat = Number(p.lat);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+    wx.openLocation({
+      longitude: lng,
+      latitude: lat,
+      name: p.name || '',
+      address: p.address || ''
+    });
+  },
+
   toMediaProxyUrl(url) {
     const raw = String(url || '').trim();
     if (!raw) return '';
@@ -279,7 +449,9 @@ Page({
           address: '示例地址',
           star: 5,
           city: '上海',
-          facilities: ['免费 WiFi', '停车场', '健身房', '早餐']
+          facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
+          lng: 121.4737,
+          lat: 31.2304
         },
         bannerMedias: [
           { type: 'image', url: 'https://images.unsplash.com/photo-1501117716987-c8e1ecb210ff?auto=format&fit=crop&w=1200&q=60' },
@@ -288,6 +460,10 @@ Page({
         facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
         rooms: [{ id: 'r1', name: '标准间', price: 299 }]
       });
+      const lng = 121.4737;
+      const lat = 31.2304;
+      this.setData({ lng, lat, markers: this.buildMarkers(lng, lat) });
+      this.fetchNearbyPois(lng, lat);
       return;
     }
 
@@ -297,7 +473,10 @@ Page({
       const rooms = (data.rooms || []).slice().sort((a, b) => Number(a.price) - Number(b.price));
       const bannerMedias = this.buildBannerMedias(hotel);
       const facilities = this.normalizeFacilities(hotel.facilities);
-      this.setData({ hotel, rooms, bannerMedias, facilities });
+      const lng = hotel?.lng;
+      const lat = hotel?.lat;
+      this.setData({ hotel, rooms, bannerMedias, facilities, lng, lat, markers: this.buildMarkers(lng, lat) });
+      this.fetchNearbyPois(lng, lat);
     } catch (e) {
       this.setData({ error: e.message || '加载失败' });
     }
