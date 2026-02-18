@@ -176,6 +176,7 @@ export default function HotelEdit() {
     openTime: toDateInputValue('2020-01-01'),
     description: '',
     facilitiesText: '', // 文本域输入的设施，逗号分隔
+    facilities: [],
     images: [],
     videos: [],
     roomTypes: [{ name: '标准间', price: 299 }],
@@ -279,6 +280,7 @@ export default function HotelEdit() {
       openTime: toDateInputValue('2020-01-01'),
       description: '',
       facilitiesText: '',
+      facilities: [],
       images: [],
       videos: [],
       roomTypes: [{ name: '标准间', price: 299 }],
@@ -303,6 +305,8 @@ export default function HotelEdit() {
       } else if (h.facilities) {
         facilitiesStr = String(h.facilities);
       }
+
+      const facilitiesArr = Array.isArray(h.facilities) ? h.facilities.filter(Boolean).map((x) => String(x).trim()).filter(Boolean) : normalizeFacilities(facilitiesStr);
 
       // 数据处理：媒体可能为 null 或单字符串或数组
       const ensureArray = (item) => {
@@ -336,7 +340,7 @@ export default function HotelEdit() {
         openTime: toDateInputValue(h.openTime),
         description: h.description || '',
         facilitiesText: facilitiesStr,
-
+        facilities: facilitiesArr,
         images: ensureArray(h.images),
         videos: ensureArray(h.videos),
         roomTypes:
@@ -528,6 +532,13 @@ export default function HotelEdit() {
     return raw.split(/[\n\r,，、;；]+/).map((s) => s.trim()).filter(Boolean);
   }
 
+  function normalizeFacilitiesList(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((x) => String(x || '').trim())
+      .filter(Boolean);
+  }
+
   const cityForMap = addressEditMode ? (isMunicipality ? provinceName : cityName) : (values.city || '');
   const addressForGeo = addressEditMode
     ? `${provinceName || ''}${isMunicipality ? '' : (cityName || '')}${districtName || ''}${values.streetAddress || ''}`
@@ -577,7 +588,7 @@ export default function HotelEdit() {
 
         openTime: values.openTime,
         description: values.description,
-        facilities: normalizeFacilities(values.facilitiesText),
+        facilities: Array.isArray(values.facilities) && values.facilities.length ? normalizeFacilitiesList(values.facilities) : normalizeFacilities(values.facilitiesText),
         images: values.images,
 
         videos: values.videos,
@@ -921,7 +932,66 @@ export default function HotelEdit() {
                       <TextField label="酒店简介" value={values.description} onChange={(ev) => setField('description', ev.target.value)} fullWidth multiline rows={3} />
                     </Grid>
                     <Grid item xs={12}>
-                      <TextField label="设施服务 (逗号分隔)" value={values.facilitiesText} onChange={(ev) => setField('facilitiesText', ev.target.value)} fullWidth />
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        options={[]}
+                        sx={{
+                          '& .MuiAutocomplete-inputRoot': {
+                            flexWrap: 'nowrap',
+                          },
+                          '& .MuiAutocomplete-input': {
+                            minWidth: 220,
+                            flexGrow: 1,
+                          },
+                        }}
+                        value={Array.isArray(values.facilities) ? values.facilities : []}
+                        onChange={(e2, next) => {
+                          const cleaned = normalizeFacilitiesList(next);
+                          setValues((v) => ({ ...v, facilities: cleaned, facilitiesText: cleaned.join('，') }));
+                        }}
+                        renderTags={(tagValue, getTagProps) => {
+                          if (!tagValue || tagValue.length === 0) return null;
+                          return (
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                alignItems: 'center',
+                                gap: 1,
+                                overflowX: 'auto',
+                                maxWidth: '100%',
+                                pr: 0.5,
+                                '&::-webkit-scrollbar': { height: 6 },
+                                '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 999 },
+                              }}
+                            >
+                              {tagValue.map((option, index) => (
+                                <Chip
+                                  variant="outlined"
+                                  label={option}
+                                  {...getTagProps({ index })}
+                                  key={option + index}
+                                  sx={{ flex: '0 0 auto' }}
+                                />
+                              ))}
+                            </Box>
+                          );
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="设施服务"
+                            placeholder="输入后回车"
+                            fullWidth
+                            
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { minWidth: 220 },
+                            }}
+                          />
+                        )}
+                      />
                     </Grid>
 
                     <Grid item xs={12}>
