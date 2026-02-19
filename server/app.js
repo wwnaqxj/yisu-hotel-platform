@@ -11,6 +11,7 @@ const uploadRoutes = require('./routes/upload');
 const mediaRoutes = require('./routes/media');
 const geoRoutes = require('./routes/geo');
 const { ensureAdmin, ensureMerchant } = require('./seed');
+const { getPrisma } = require('./prismaClient');
 
 const app = express();
 
@@ -39,7 +40,8 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3001);
-Promise.all([ensureAdmin(), ensureMerchant()])
+const prisma = getPrisma();
+Promise.all([ensureAdmin(prisma), ensureMerchant(prisma)])
   .catch((e) => {
     console.error('Seed failed:', e);
   })

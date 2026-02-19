@@ -47,6 +47,9 @@ model Hotel {
   status       HotelStatus @default(pending)
   rejectReason String      @default("")
 
+  minPrice     Int         @default(0)
+  score        Float       @default(4.5)
+
   facilities   Json?
   images       Json?
   videos       Json?

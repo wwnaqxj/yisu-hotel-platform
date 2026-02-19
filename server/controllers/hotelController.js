@@ -9,7 +9,7 @@ function normalizeNumber(v, fallback) {
 async function list(req, res, next) {
   try {
     const prisma = getPrisma();
-    const { city, keyword, status } = req.query;
+    const { city, keyword, status, minPrice, maxPrice, star, sort } = req.query;
     const page = Math.max(1, normalizeNumber(req.query.page, 1));
     const pageSize = Math.min(50, Math.max(1, normalizeNumber(req.query.pageSize, 10)));
 
@@ -17,16 +17,37 @@ async function list(req, res, next) {
     if (status) where.status = status;
     else where.status = 'approved';
 
-    if (city) where.city = { contains: String(city), mode: 'insensitive' };
+    if (city) where.city = { contains: String(city) }; // Removed 'mode: insensitive' for MySQL compatibility if needed, but Prisma usually handles it.
 
     if (keyword) {
       const kw = String(keyword);
       where.OR = [
-        { nameZh: { contains: kw, mode: 'insensitive' } },
-        { nameEn: { contains: kw, mode: 'insensitive' } },
-        { address: { contains: kw, mode: 'insensitive' } },
+        { nameZh: { contains: kw } },
+        { nameEn: { contains: kw } },
+        { address: { contains: kw } },
       ];
     }
+
+    // Price Filter
+    if (minPrice || maxPrice) {
+      where.minPrice = {};
+      if (minPrice) where.minPrice.gte = Number(minPrice);
+      if (maxPrice) where.minPrice.lte = Number(maxPrice);
+    }
+
+    // Star Filter (e.g., star=3,4,5)
+    if (star) {
+      const stars = String(star).split(',').map(Number).filter(n => n > 0);
+      if (stars.length > 0) {
+        where.star = { in: stars };
+      }
+    }
+
+    // Sorting
+    let orderBy = { updatedAt: 'desc' };
+    if (sort === 'price_asc') orderBy = { minPrice: 'asc' };
+    else if (sort === 'price_desc') orderBy = { minPrice: 'desc' };
+    else if (sort === 'score_desc') orderBy = { score: 'desc' };
 
     const [total, data] = await Promise.all([
       prisma.hotel.count({ where }),
@@ -34,7 +55,7 @@ async function list(req, res, next) {
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
         include: {
           rooms: { orderBy: { price: 'asc' }, take: 1 },
         },
@@ -42,13 +63,17 @@ async function list(req, res, next) {
     ]);
 
     const items = data.map((h) => {
-      const minPrice = h.rooms?.[0]?.price;
-      // keep response shape compatible with existing frontends
+      // Use the stored minPrice if available, otherwise fall back to room price
+      let currentMinPrice = h.minPrice;
+      if (!currentMinPrice && h.rooms?.length > 0) {
+        currentMinPrice = h.rooms[0].price;
+      }
+
       const { rooms, ...rest } = h;
       return {
         ...rest,
-        price: typeof minPrice === 'number' ? minPrice : undefined,
-        minPrice: typeof minPrice === 'number' ? minPrice : undefined,
+        price: currentMinPrice,
+        minPrice: currentMinPrice,
       };
     });
 
