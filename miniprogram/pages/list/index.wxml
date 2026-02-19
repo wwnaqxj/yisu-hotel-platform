@@ -1,31 +1,85 @@
-<view class="container">
-  <view class="card">
-    <view style="font-weight:600;">条件</view>
-    <view style="margin-top:10rpx; font-size:24rpx; opacity:.7;">
-      城市：{{query.city || '-'}}
+<view class="container-list">
+  <!-- 顶部核心条件筛选头 -->
+  <view class="search-header">
+    <view class="search-bar" bindtap="onSearchTap">
+      <view class="search-location">{{query.city || '目的地'}}</view>
+      <view class="search-date">
+        <text class="date-text">{{query.checkIn || '入住'}}</text>
+        <text class="date-night" wx:if="{{nights > 0}}">{{nights}}晚</text>
+        <text class="date-text">{{query.checkOut || '离店'}}</text>
+      </view>
+      <view class="search-keyword">
+        <text>{{query.keyword || '搜索酒店/地名'}}</text>
+      </view>    </view>
+  </view>
+
+  <!-- 详细筛选区域 -->
+  <view class="filter-bar">
+    <view class="filter-item {{activeFilter === 'sort' ? 'active' : ''}}" bindtap="onFilterTap" data-type="sort">
+      推荐排序 <text class="arrow">▼</text>
     </view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">
-      关键词：{{query.keyword || '-'}}
+    <view class="filter-item {{activeFilter === 'price' ? 'active' : ''}}" bindtap="onFilterTap" data-type="price">
+      价格/星级 <text class="arrow">▼</text>
     </view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">
-      日期：{{query.checkIn || '-'}} - {{query.checkOut || '-'}}
+    <view class="filter-item {{activeFilter === 'filter' ? 'active' : ''}}" bindtap="onFilterTap" data-type="filter">
+      筛选 <text class="arrow">▼</text>
+    </view>
+    <view class="filter-item" bindtap="onFilterTap" data-type="location">
+      位置区域 <text class="arrow">▼</text>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
+  <!-- 酒店列表 -->
+  <view class="hotel-list">
+    <block wx:for="{{items}}" wx:key="id">
+      <view class="hotel-card" bindtap="onItemTap" data-id="{{item.id}}">
+        <view class="hotel-image">
+          <image src="{{item.cover || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80'}}" mode="aspectFill"></image>
+        </view>
+        <view class="hotel-info">
+          <view class="hotel-header">
+            <text class="hotel-name">{{item.nameZh || item.nameEn || '未命名酒店'}}</text>
+          </view>
+          
+          <view class="hotel-rating-row">
+            <text class="hotel-score">{{item.score || 4.5}}分</text>
+            <text class="hotel-score-desc">棒</text>
+            <text class="hotel-review-count">100+条点评</text>
+          </view>
 
-  <view wx:for="{{items}}" wx:key="id" class="card" style="margin-bottom: 16rpx;" bindtap="onItemTap" data-id="{{item.id}}">
-    <view style="display:flex; justify-content:space-between; gap: 16rpx;">
-      <view style="font-weight:600;">{{item.nameZh || item.nameEn || '未命名酒店'}}</view>
-      <view style="font-weight:600;">¥ {{item.price || '-'}}</view>
+          <view class="hotel-address-row">
+            <text class="hotel-address">{{item.address || '暂无地址'}}</text>
+          </view>
+          
+          <view class="hotel-tags">
+            <text class="tag" wx:if="{{item.star}}">{{item.star}}星级</text>
+            <text class="tag">免费取消</text>
+          </view>
+
+          <view class="hotel-price-row">
+            <view class="price-box">
+              <text class="currency">¥</text>
+              <text class="price">{{item.price || '-'}}</text>
+              <text class="price-suffix">起</text>
+            </view>
+            <view class="book-btn">预订</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <!-- 加载状态 -->
+    <view class="loading-state">
+      <view class="loading-content" wx:if="{{loading}}">
+        <view class="loading-spinner"></view>
+        <text>加载中...</text>
+      </view>
+      <view class="no-more" wx:elif="{{!hasMore && items.length > 0}}">
+        <text>没有更多酒店了</text>
+      </view>
+      <view class="empty-state" wx:elif="{{!loading && items.length === 0}}">
+        <text>未找到符合条件的酒店</text>
+      </view>
     </view>
-    <view style="margin-top:10rpx; font-size:24rpx; opacity:.7;">{{item.address || ''}}</view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">星级：{{item.star || '-'}}</view>
-  </view>
-
-  <view style="text-align:center; padding: 20rpx 0; font-size:24rpx; opacity:.7;">
-    <text wx:if="{{loading}}">加载中...</text>
-    <text wx:elif="{{hasMore}}">上拉加载更多</text>
-    <text wx:else>没有更多了</text>
   </view>
 </view>

@@ -1,0 +1,254 @@
+/* page {
+  background: #f5f7fa; 
+} */
+
+.container-list {
+  padding-bottom: 40rpx;
+}
+
+/* 顶部搜索头 */
+.search-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  padding: 16rpx 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: #f2f4f6;
+  border-radius: 8rpx;
+  padding: 16rpx 20rpx;
+  font-size: 26rpx;
+  color: #333;
+}
+
+.search-location {
+  font-weight: 600;
+  color: #111;
+  max-width: 120rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 16rpx;
+  position: relative;
+}
+.search-location::after {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 8rpx solid transparent;
+  border-right: 8rpx solid transparent; 
+  border-top: 8rpx solid #333;
+  margin-left: 8rpx;
+  vertical-align: middle;
+}
+
+.search-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 16rpx;
+  font-size: 20rpx;
+  color: #666;
+  border-right: 1rpx solid #ddd;
+  padding-right: 16rpx;
+  min-width: 120rpx;
+}
+.date-text {
+  line-height: 1.2;
+}
+.date-night {
+  color: #0086F6;
+  font-weight: 500;
+}
+
+.search-keyword {
+  flex: 1;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 筛选条 */
+.filter-bar {
+  position: sticky;
+  top: 104rpx; /* Adjust based on header height */
+  z-index: 99;
+  background: #fff;
+  display: flex;
+  justify-content: space-around;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+  font-size: 24rpx;
+  color: #666;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+}
+.filter-item.active {
+  color: #0086F6;
+  font-weight: 600;
+}
+.arrow {
+  margin-left: 6rpx;
+  font-size: 16rpx;
+}
+
+/* 酒店列表 */
+.hotel-list {
+  padding: 24rpx;
+}
+
+.hotel-card {
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+  display: flex;
+  flex-direction: row;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+}
+
+.hotel-image {
+  width: 200rpx;
+  height: 260rpx;
+  flex-shrink: 0;
+}
+
+.hotel-image image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hotel-info {
+  flex: 1;
+  padding: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hotel-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #111;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.hotel-rating-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: 8rpx;
+}
+.hotel-score {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #0086F6;
+  margin-right: 8rpx;
+}
+.hotel-score-desc {
+  font-size: 24rpx;
+  color: #0086F6;
+  margin-right: 16rpx;
+}
+.hotel-review-count {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.hotel-address-row {
+  margin-top: 8rpx;
+}
+.hotel-address {
+  font-size: 22rpx;
+  color: #666;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+
+.hotel-tags {
+  margin-top: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+.tag {
+  font-size: 20rpx;
+  padding: 4rpx 8rpx;
+  background: #f0f2f5;
+  color: #666;
+  border-radius: 4rpx;
+}
+
+.hotel-price-row {
+  margin-top: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.price-box {
+  color: #ff5000;
+  display: flex;
+  align-items: baseline;
+}
+.currency {
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.price {
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 4rpx;
+}
+.price-suffix {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.book-btn {
+  background: #0086F6;
+  color: #fff;
+  font-size: 24rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
+/* Loading States */
+.loading-state {
+  text-align: center;
+  padding: 32rpx 0;
+  color: #999;
+  font-size: 24rpx;
+}
+.loading-spinner {
+  display: inline-block;
+  width: 32rpx;
+  height: 32rpx;
+  border: 4rpx solid #e5e5e5;
+  border-top-color: #0086F6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 12rpx;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

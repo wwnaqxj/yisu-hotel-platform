@@ -229,6 +229,8 @@ export default function HotelEdit() {
     return myHotels.find((h) => h.id === selectedId) || null;
   }, [myHotels, selectedId]);
 
+  const [rejectReason, setRejectReason] = useState('');
+
   // --- 初始化与定时器 ---
   useEffect(() => {
     refreshList();
@@ -263,7 +265,9 @@ export default function HotelEdit() {
   // --- 业务逻辑：重置表单（新建模式） ---
   function handleReset() {
     setSelectedId(null);
+    const api = useApi(); // Ensure api is available if used, though it's defined in outer scope. useApi() hook call is at top level.
     setAddressEditMode(true);
+    setRejectReason('');
     setValues({
       nameZh: '',
       nameEn: '',
@@ -295,6 +299,7 @@ export default function HotelEdit() {
 
       setSelectedId(h.id);
       setAddressEditMode(false);
+      setRejectReason(h.rejectReason || '');
 
       // 数据处理：设施数组转字符串
       let facilitiesStr = '';
@@ -774,6 +779,12 @@ export default function HotelEdit() {
           </Box>
 
           <Box sx={{ flexGrow: 1, minWidth: 0, width: '100%' }}>
+            {selectedHotel?.status === 'rejected' && (
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold">审核不通过</Typography>
+                <Typography variant="body2">原因：{rejectReason || '未具体说明'}</Typography>
+              </Alert>
+            )}
             <Box component="form" onSubmit={onSubmit}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 3 }} spacing={2}>
                 <Box>
