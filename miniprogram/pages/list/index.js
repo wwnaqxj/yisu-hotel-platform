@@ -1,337 +1,283 @@
 const { request } = require('../../utils/request');
 
-function formatDateShort(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}-${d.getDate()}`;
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function toYmd(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
+function toShort(ymd) {
+  if (!ymd) return '';
+  const [, m, d] = ymd.split('-');
+  return `${Number(m)}月${Number(d)}日`;
+}
+
+function calcNights(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 1;
+  const diff = new Date(checkOut) - new Date(checkIn);
+  return diff > 0 ? Math.ceil(diff / 86400000) : 1;
+}
+
+function scoreLabel(score) {
+  if (score >= 4.8) return '口碑极佳';
+  if (score >= 4.6) return '好评如潮';
+  if (score >= 4.4) return '值得住';
+  if (score >= 4.0) return '评价良好';
+  return '总体不错';
+}
+
+// enrich raw hotel item from API
+function enrichItem(h) {
+  const starArr = Array.from({ length: h.star || 0 }, (_, i) => i);
+  const topFacilities = Array.isArray(h.facilities) ? h.facilities.slice(0, 3) : [];
+  return {
+    ...h,
+    starArr,
+    topFacilities,
+    scoreLabel: scoreLabel(h.score || 0),
+    reviewCount: Math.floor(100 + (h.id || 1) * 37) % 900 + 100, // pseudo count
+  };
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 Page({
   data: {
-    query: {
-      city: '',
-      keyword: '',
-      checkIn: '',
-      checkOut: '',
-      checkInShort: '',
-      checkOutShort: ''
-    },
+    // Query params
+    query: { city: '', keyword: '', checkIn: '', checkOut: '', checkInShort: '', checkOutShort: '' },
     nights: 1,
+    total: 0,
+
+    // Pagination
     page: 1,
-    pageSize: 15,
+    pageSize: 10,
     items: [],
     loading: false,
     hasMore: true,
     error: '',
 
-    // Filter UI State
-    activeFilter: '', // 'sort', 'priceStar', 'more'
-    currentSort: 'default',
-    currentSortLabel: '推荐排序',
+    // UI
+    activeFilter: '',
+    showSearchInput: false,
 
-    // Price & Star State
+    // Sort
+    sortOptions: [
+      { key: 'default', label: '智能推荐' },
+      { key: 'score_desc', label: '评分最高' },
+      { key: 'price_asc', label: '价格从低到高' },
+      { key: 'price_desc', label: '价格从高到低' },
+    ],
+    currentSort: 'default',
+    currentSortLabel: '智能推荐',
+
+    // Filters
+    cities: ['北京', '上海', '广州', '深圳', '成都', '杭州'],
     priceRanges: [
-      { label: '¥150以下', min: 0, max: 150 },
-      { label: '¥150-300', min: 150, max: 300 },
-      { label: '¥301-450', min: 301, max: 450 },
-      { label: '¥451-600', min: 451, max: 600 },
-      { label: '¥600-1000', min: 600, max: 1000 },
-      { label: '¥1000以上', min: 1000, max: 99999 }
+      { label: '¥200以下', min: 0, max: 200 },
+      { label: '¥200-500', min: 200, max: 500 },
+      { label: '¥500-1000', min: 500, max: 1000 },
+      { label: '¥1000-2000', min: 1000, max: 2000 },
+      { label: '¥2000以上', min: 2000, max: 99999 },
     ],
     selectedPriceRange: null,
-    selectedStar: null, // 3, 4, 5
-    // City / Search / Date pickers
-    cities: ['北京', '上海', '广州', '深圳', '杭州'],
-    showSearchInput: false,
-    facilities: ['免费WiFi', '含早餐', '停车场', '游泳池', '健身房', '可退款'],
+    selectedStar: null,
+
+    facilities: ['免费WiFi', '含早餐', '停车场', '游泳池', '健身房', '水疗中心', '24小时前台', '接送机', '可退款'],
     selectedFacilities: [],
   },
 
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   onLoad(options) {
-    // Initialize dates (Default: Today -> Tomorrow)
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const checkIn = options.checkIn || today.toISOString().split('T')[0];
-    const checkOut = options.checkOut || tomorrow.toISOString().split('T')[0];
+    const checkIn = options.checkIn || toYmd(today);
+    const checkOut = options.checkOut || toYmd(tomorrow);
+    const city = options.city ? decodeURIComponent(options.city) : '北京';
+    const keyword = options.keyword ? decodeURIComponent(options.keyword) : '';
 
-    const query = {
-      city: options.city ? decodeURIComponent(options.city) : '北京', // Default city for demo
-      keyword: options.keyword ? decodeURIComponent(options.keyword) : '',
-      checkIn,
-      checkOut,
-      checkInShort: formatDateShort(checkIn),
-      checkOutShort: formatDateShort(checkOut)
-    };
-
-    // Calculate nights
-    let nights = 1;
-    if (checkIn && checkOut) {
-      const start = new Date(checkIn);
-      const end = new Date(checkOut);
-      const diff = end - start;
-      if (diff > 0) {
-        nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      }
-    }
-
-    this.setData({ query, nights });
-    this.resetAndLoad();
-
-    // If opened with ?debug=1, automatically fetch and print full API result for debugging
-    if (options && (options.debug === '1' || options._debug === '1')) {
-      this.debugFetchList();
-    }
-  },
-
-  async debugFetchList() {
-    try {
-      const { query, pageSize } = this.data;
-      const params = {
-        city: query.city,
-        keyword: query.keyword,
-        page: 1,
-        pageSize: pageSize || 15,
-        sort: this.data.currentSort || 'default'
-      };
-      if (this.data.selectedPriceRange) {
-        params.minPrice = this.data.selectedPriceRange.min;
-        params.maxPrice = this.data.selectedPriceRange.max;
-      }
-      if (this.data.selectedStar) params.star = this.data.selectedStar;
-      if (this.data.selectedFacilities && this.data.selectedFacilities.length) params.facilities = this.data.selectedFacilities.join(',');
-
-      console.log('[debugFetchList] 请求参数：', params);
-      const res = await request({ url: '/api/hotel/list', method: 'GET', data: params });
-      console.log('[debugFetchList] 返回结果：', res);
-      // expose result in data for quick UI inspection if desired
-      this.setData({ debugResult: JSON.stringify(res, null, 2) });
-      wx.showToast({ title: '已打印接口结果到控制台', icon: 'none', duration: 2000 });
-    } catch (err) {
-      console.error('[debugFetchList] 错误：', err);
-      wx.showToast({ title: '调试请求出错，查看控制台', icon: 'none' });
-    }
-  },
-
-  onCityChange(e) {
-    const idx = e.detail.value;
-    const city = this.data.cities[idx] || this.data.query.city;
-    const query = Object.assign({}, this.data.query, { city });
-    this.setData({ query });
+    this.setData({
+      query: {
+        city, keyword,
+        checkIn, checkOut,
+        checkInShort: toShort(checkIn),
+        checkOutShort: toShort(checkOut),
+      },
+      nights: calcNights(checkIn, checkOut),
+    });
     this.resetAndLoad();
   },
 
-  onCheckInChange(e) {
-    const checkIn = e.detail.value;
-    const checkInShort = formatDateShort(checkIn);
-    const query = Object.assign({}, this.data.query, { checkIn, checkInShort });
-    // recalc nights
-    let nights = this.data.nights || 1;
-    if (query.checkIn && query.checkOut) {
-      const s = new Date(query.checkIn);
-      const t = new Date(query.checkOut);
-      const diff = t - s;
-      if (diff > 0) nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    }
-    this.setData({ query, nights });
-    this.resetAndLoad();
-  },
-
-  onCheckOutChange(e) {
-    const checkOut = e.detail.value;
-    const checkOutShort = formatDateShort(checkOut);
-    const query = Object.assign({}, this.data.query, { checkOut, checkOutShort });
-    // recalc nights
-    let nights = this.data.nights || 1;
-    if (query.checkIn && query.checkOut) {
-      const s = new Date(query.checkIn);
-      const t = new Date(query.checkOut);
-      const diff = t - s;
-      if (diff > 0) nights = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    }
-    this.setData({ query, nights });
-    this.resetAndLoad();
-  },
-
-  openSearch() {
-    this.setData({ showSearchInput: true });
-  },
-
-  onSearchInput(e) {
-    const keyword = e.detail.value;
-    this.setData({ 'query.keyword': keyword });
-  },
-
-  onSearchConfirm() {
-    this.setData({ showSearchInput: false });
-    this.resetAndLoad();
-  },
-
-  toggleFacility(e) {
-    const idx = e.currentTarget.dataset.index;
-    const fac = this.data.facilities[idx];
-    const list = new Set(this.data.selectedFacilities || []);
-    if (list.has(fac)) list.delete(fac); else list.add(fac);
-    this.setData({ selectedFacilities: Array.from(list) });
-  },
-
-  async resetAndLoad() {
-    this.setData({ page: 1, items: [], hasMore: true, error: '' });
-    await this.loadMore();
-  },
-
-  async loadMore() {
-    if (this.data.loading) return;
-    if (!this.data.hasMore) return;
-
-    this.setData({ loading: true, error: '' });
-    try {
-      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar } = this.data;
-
-      const params = {
-        city: query.city,
-        keyword: query.keyword,
-        page,
-        pageSize,
-        sort: currentSort
-      };
-
-      if (selectedPriceRange) {
-        params.minPrice = selectedPriceRange.min;
-        params.maxPrice = selectedPriceRange.max;
-      }
-      if (this.data.selectedFacilities && this.data.selectedFacilities.length) {
-        params.facilities = this.data.selectedFacilities.join(',');
-      }
-      if (selectedStar) {
-        params.star = selectedStar; // 3, 4, 5. Backend handles 'in' logic if comma separated, or single value.
-        // If we want "3 star and above" logic, we might need to send 3,4,5.
-        // For now, let's assume exact match or the backend logic I wrote supports "comma".
-        // If UI implies "X star", usually it's strict. If "X and above", we logic it here.
-        // Let's implement "X and above" simply by sending the value, if backend filters exact.
-        // Wait, my backend implementation uses `in`. So if I select 3, it shows only 3.
-        // I will change UI to multiselect or just single select for simplicity.
-        // User request: "Custom definition".
-        // I'll stick to single select for UI simplicity: "Select 5 star" -> shows 5 star.
-      }
-
-      const data = await request({
-        url: '/api/hotel/list',
-        method: 'GET',
-        data: params
-      });
-
-      const next = (data.items || []);
-      const hasMore = next.length >= pageSize && page < (data.totalPages || 9999);
-
-      this.setData({
-        items: this.data.items.concat(next),
-        page: page + 1,
-        hasMore
-      });
-    } catch (e) {
-      console.error(e);
-      this.setData({ error: e.message || '加载失败' });
-    } finally {
-      this.setData({ loading: false });
-    }
+  onPullDownRefresh() {
+    this.resetAndLoad().finally(() => wx.stopPullDownRefresh());
   },
 
   onReachBottom() {
     this.loadMore();
   },
 
-  onItemTap(e) {
-    const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: `/pages/detail/index?id=${id}` });
+  // ── Load Data ─────────────────────────────────────────────────────────────
+  async resetAndLoad() {
+    this.setData({ page: 1, items: [], hasMore: true, error: '', total: 0 });
+    await this.loadMore();
   },
 
-  // --- Filter Logic ---
+  async loadMore() {
+    if (this.data.loading || !this.data.hasMore) return;
+    this.setData({ loading: true, error: '' });
 
-  onFilterTap(e) {
-    const type = e.currentTarget.dataset.type;
-    if (this.data.activeFilter === type) {
-      this.setData({ activeFilter: '' }); // Toggle off
-    } else {
-      this.setData({ activeFilter: type });
+    try {
+      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar, selectedFacilities } = this.data;
+
+      const params = {
+        city: query.city,
+        keyword: query.keyword,
+        page,
+        pageSize,
+        sort: currentSort,
+      };
+      if (selectedPriceRange) {
+        params.minPrice = selectedPriceRange.min;
+        params.maxPrice = selectedPriceRange.max;
+      }
+      if (selectedStar) params.star = selectedStar;
+      if (selectedFacilities && selectedFacilities.length) {
+        params.facilities = selectedFacilities.join(',');
+      }
+
+      const data = await request({ url: '/api/hotel/list', method: 'GET', data: params });
+
+      const next = (data.items || []).map(enrichItem);
+      const hasMore = next.length >= pageSize;
+
+      this.setData({
+        items: this.data.items.concat(next),
+        total: data.total || 0,
+        page: page + 1,
+        hasMore,
+      });
+    } catch (e) {
+      console.error('[list] loadMore error:', e);
+      this.setData({ error: e.message || '加载失败，请检查网络' });
+    } finally {
+      this.setData({ loading: false });
     }
   },
 
-  closeFilter() {
-    this.setData({ activeFilter: '' });
+  // ── Navigation ────────────────────────────────────────────────────────────
+  onItemTap(e) {
+    wx.navigateTo({ url: `/pages/detail/index?id=${e.currentTarget.dataset.id}` });
   },
 
-  onSortSelect(e) {
-    const sort = e.currentTarget.dataset.sort;
-    let label = '推荐排序';
-    if (sort === 'price_asc') label = '价格低到高';
-    if (sort === 'price_desc') label = '价格高到低';
-    if (sort === 'score_desc') label = '评分高到低';
+  // ── City / Date ───────────────────────────────────────────────────────────
+  onCityChange(e) {
+    const city = this.data.cities[e.detail.value];
+    this.setData({ 'query.city': city });
+    this.resetAndLoad();
+  },
 
+  onCheckInChange(e) {
+    const checkIn = e.detail.value;
+    let { checkOut } = this.data.query;
+    if (new Date(checkIn) >= new Date(checkOut)) {
+      const d = new Date(checkIn);
+      d.setDate(d.getDate() + 1);
+      checkOut = toYmd(d);
+    }
     this.setData({
-      currentSort: sort,
-      currentSortLabel: label,
-      activeFilter: ''
+      'query.checkIn': checkIn,
+      'query.checkOut': checkOut,
+      'query.checkInShort': toShort(checkIn),
+      'query.checkOutShort': toShort(checkOut),
+      nights: calcNights(checkIn, checkOut),
     });
     this.resetAndLoad();
   },
 
-  onPriceRangeSelect(e) {
-    const index = e.currentTarget.dataset.index;
-    const range = this.data.priceRanges[index];
-    // Toggle
-    if (this.data.selectedPriceRange && this.data.selectedPriceRange.label === range.label) {
-      this.setData({ selectedPriceRange: null });
-    } else {
-      this.setData({ selectedPriceRange: range });
+  onCheckOutChange(e) {
+    const checkOut = e.detail.value;
+    const { checkIn } = this.data.query;
+    if (new Date(checkOut) <= new Date(checkIn)) {
+      wx.showToast({ title: '离店不能早于入住', icon: 'none' });
+      return;
     }
+    this.setData({
+      'query.checkOut': checkOut,
+      'query.checkOutShort': toShort(checkOut),
+      nights: calcNights(checkIn, checkOut),
+    });
+    this.resetAndLoad();
   },
 
+  // ── Search ────────────────────────────────────────────────────────────────
+  openSearch() {
+    this.setData({ showSearchInput: true, activeFilter: '' });
+  },
+  closeSearch() {
+    this.setData({ showSearchInput: false });
+  },
+  clearKeyword() {
+    this.setData({ 'query.keyword': '' });
+    this.resetAndLoad();
+  },
+  onSearchInput(e) {
+    this.setData({ 'query.keyword': e.detail.value });
+  },
+  onSearchConfirm() {
+    this.setData({ showSearchInput: false });
+    this.resetAndLoad();
+  },
+  noop() { },
+
+  // ── Filter Panels ─────────────────────────────────────────────────────────
+  onFilterTap(e) {
+    const type = e.currentTarget.dataset.type;
+    this.setData({ activeFilter: this.data.activeFilter === type ? '' : type });
+  },
+  closeFilter() {
+    this.setData({ activeFilter: '' });
+  },
+
+  // Sort
+  onSortSelect(e) {
+    const { sort, label } = e.currentTarget.dataset;
+    this.setData({ currentSort: sort, currentSortLabel: label, activeFilter: '' });
+    this.resetAndLoad();
+  },
+
+  // Price
+  onPriceSelect(e) {
+    const range = this.data.priceRanges[e.currentTarget.dataset.index];
+    const same = this.data.selectedPriceRange && this.data.selectedPriceRange.label === range.label;
+    this.setData({ selectedPriceRange: same ? null : range });
+  },
+
+  // Star
   onStarSelect(e) {
     const star = e.currentTarget.dataset.star;
-    // Toggle
-    if (this.data.selectedStar === star) {
-      this.setData({ selectedStar: null });
-    } else {
-      this.setData({ selectedStar: star });
-    }
+    this.setData({ selectedStar: this.data.selectedStar === star ? null : star });
   },
 
-  resetFilter() {
-    this.setData({
-      selectedPriceRange: null,
-      selectedStar: null,
-      selectedFacilities: []
-    });
+  resetPriceStar() {
+    this.setData({ selectedPriceRange: null, selectedStar: null });
+  },
+
+  // Facilities
+  toggleFacility(e) {
+    const fac = this.data.facilities[e.currentTarget.dataset.index];
+    const set = new Set(this.data.selectedFacilities);
+    set.has(fac) ? set.delete(fac) : set.add(fac);
+    this.setData({ selectedFacilities: Array.from(set) });
+  },
+  resetMore() {
+    this.setData({ selectedFacilities: [] });
   },
 
   applyFilter() {
     this.setData({ activeFilter: '' });
     this.resetAndLoad();
   },
-
-  onCityTap() {
-    // For demo, maybe just show a toast or navigate to city list
-    wx.showToast({ title: '切换城市功能待实现', icon: 'none' });
-  },
-
-  onDateTap() {
-    // For demo
-    wx.showToast({ title: '修改日期功能待实现', icon: 'none' });
-  },
-
-  onSearchTap() {
-    wx.showToast({ title: '搜索已点击', icon: 'none' });
-  },
-
-  onPullDownRefresh() {
-    this.resetAndLoad()
-      .then(() => {
-        wx.stopPullDownRefresh();
-      })
-      .catch(() => {
-        wx.stopPullDownRefresh();
-      });
-  }
 });
