@@ -15,7 +15,7 @@ enum Role {
 enum HotelStatus {
   pending
   approved
-  rejected+
+  rejected
   offline
 }
 

@@ -10,5 +10,5 @@ coverage
 .vscode
 .idea
 *.log
-
+.cursor
 miniprogram/config.local.js
