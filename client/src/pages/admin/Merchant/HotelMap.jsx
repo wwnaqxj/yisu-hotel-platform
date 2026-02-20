@@ -36,6 +36,41 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
     if (!jsKey) return;
     let canceled = false;
 
+    /** 等容器有宽高再创建地图，避免 flex 首帧未算完导致 0 尺寸灰屏 */
+    function waitForSize(el, maxMs = 3000) {
+      return new Promise((resolve) => {
+        if (!el) {
+          resolve(false);
+          return;
+        }
+        const check = () => {
+          if (canceled) {
+            resolve(false);
+            return true;
+          }
+          const w = el.offsetWidth;
+          const h = el.offsetHeight;
+          if (w > 0 && h > 0) {
+            resolve(true);
+            return true;
+          }
+          return false;
+        };
+        if (check()) return;
+        const start = Date.now();
+        const id = setInterval(() => {
+          if (check()) {
+            clearInterval(id);
+            return;
+          }
+          if (Date.now() - start >= maxMs) {
+            clearInterval(id);
+            resolve(true);
+          }
+        }, 50);
+      });
+    }
+
     async function init() {
       const el = mapElRef.current;
       if (!el) return;
@@ -51,6 +86,9 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
         version: '2.0',
         plugins: ['AMap.ToolBar'],
       });
+      if (canceled || !mapElRef.current) return;
+
+      await waitForSize(mapElRef.current);
       if (canceled || !mapElRef.current) return;
 
       const center = isValidLngLat(lng, lat) ? [Number(lng), Number(lat)] : BEIJING_CENTER;
@@ -95,7 +133,8 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
       map.on('complete', handleResize);
       window.addEventListener('resize', handleResize);
       setTimeout(handleResize, 0);
-      setTimeout(handleResize, 200);
+      setTimeout(handleResize, 150);
+      setTimeout(handleResize, 500);
 
       return () => {
         map.off('complete', handleResize);
