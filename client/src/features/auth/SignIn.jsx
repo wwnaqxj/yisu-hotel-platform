@@ -212,10 +212,10 @@ export default function SignIn(props) {
                 color={passwordError ? "error" : "primary"}
               />
             </FormControl>
-            <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />}
-              label="记住我"
-            />
+            {/* <FormControlLabel
+              control={<Checkbox value="remember" color="primary" />} 
+              label="记住我"  
+            /> */}
             <ForgotPassword open={open} handleClose={handleClose} />
             <Button
               type="submit"
@@ -226,7 +226,7 @@ export default function SignIn(props) {
             >
               {submitting ? "登录中…" : "Sign in"}
             </Button>
-            <Link
+            {/* <Link
               component="button"
               type="button"
               onClick={handleClickOpen}
@@ -234,7 +234,7 @@ export default function SignIn(props) {
               sx={{ alignSelf: "center" }}
             >
               忘记密码?
-            </Link>
+            </Link> */}
           </Box>
           <Divider>or</Divider>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
