@@ -44,7 +44,8 @@ import {
   VideoCameraBack as VideoIcon,
   RoomService as RoomIcon, // 房型图标
   Store as StoreIcon,
-  AttachMoney as MoneyIcon
+  AttachMoney as MoneyIcon,
+  AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 
 import { useApi } from '../../../hooks/useApi';
@@ -630,7 +631,12 @@ export default function HotelEdit() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'radial-gradient(1200px 500px at 10% -10%, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0) 60%), radial-gradient(900px 450px at 90% -10%, rgba(99,102,241,0.16) 0%, rgba(99,102,241,0) 55%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #f8fafc 100%)',
+      }}
+    >
       <AppBar
         position="fixed"
         elevation={0}
@@ -641,22 +647,57 @@ export default function HotelEdit() {
           zIndex: 1201
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar variant="rounded" sx={{ bgcolor: theme.palette.primary.main, fontWeight: 'bold', width: 36, height: 36 }}>
-              <StoreIcon fontSize="small" />
+        <Toolbar
+          sx={{
+            minHeight: 68,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'center',
+            columnGap: 2,
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            <Avatar
+              variant="rounded"
+              sx={{
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.95) 0%, rgba(99,102,241,0.95) 55%, rgba(14,165,233,0.95) 100%)',
+                border: '1px solid rgba(255,255,255,0.16)',
+                width: 36,
+                height: 36,
+                boxShadow: '0 10px 20px rgba(2, 6, 23, 0.25)',
+              }}
+            >
+              <StoreIcon fontSize="small" sx={{ color: '#fff' }} />
             </Avatar>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700} color="white" lineHeight={1.2}>
-                易宿商户中心
-              </Typography>
-              <Typography variant="caption" color="rgba(255,255,255,0.5)">
-                {currentTime}
-              </Typography>
-            </Box>
+            <Chip
+              icon={<AccessTimeIcon sx={{ color: 'rgba(255,255,255,0.75) !important' }} />}
+              label={currentTime}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.85)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                fontWeight: 600,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ textAlign: 'center', px: 2 }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: 1,
+                color: '#fff',
+                lineHeight: 1.1,
+              }}
+            >
+              易宿商户中心
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ justifySelf: 'end' }}>
             <Chip
               avatar={<Avatar sx={{ bgcolor: theme.palette.primary.dark, color: '#fff' }}>{(user?.username || 'A')[0]}</Avatar>}
               label={user?.username || 'Merchant'}
@@ -700,7 +741,7 @@ export default function HotelEdit() {
 
       <Toolbar />
 
-      <Container maxWidth={false} sx={{ py: 3, px: 3 }}>
+      <Container maxWidth={false} sx={{ py: 3.5, px: { xs: 1.5, sm: 3 } }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
           <Box
             sx={{
@@ -718,15 +759,28 @@ export default function HotelEdit() {
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                borderRadius: 3,
-                border: 'none',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                borderRadius: 3.5,
+                border: '1px solid rgba(15, 23, 42, 0.06)',
+                bgcolor: 'rgba(255,255,255,0.78)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 10px 28px rgba(15,23,42,0.08)',
               }}
             >
-              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(15, 23, 42, 0.08)', bgcolor: 'rgba(255,255,255,0.6)' }}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <HotelIcon color="primary" />
-                  <Typography variant="subtitle1" fontWeight={700}>我的酒店</Typography>
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 30,
+                      height: 30,
+                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      color: 'primary.main',
+                      border: '1px solid rgba(59, 130, 246, 0.18)',
+                    }}
+                  >
+                    <HotelIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="subtitle1" fontWeight={800}>我的酒店</Typography>
                 </Stack>
                 <Tooltip title="刷新列表">
                   <IconButton onClick={refreshList} disabled={listLoading} size="small">
@@ -735,7 +789,7 @@ export default function HotelEdit() {
                 </Tooltip>
               </Box>
 
-              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: '#f1f5f9', p: 1.5 }}>
+              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: 'rgba(241,245,249,0.55)', p: 1.5 }}>
                 {myHotels.length === 0 && !listLoading ? (
                   <Stack alignItems="center" justifyContent="center" sx={{ height: '100%', opacity: 0.5 }}>
                     <HotelIcon sx={{ fontSize: 48, mb: 1, color: 'text.disabled' }} />
@@ -756,14 +810,28 @@ export default function HotelEdit() {
                             transition: 'all 0.2s',
                             border: '1px solid',
                             borderColor: active ? 'primary.main' : 'transparent',
-                            bgcolor: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                            borderRadius: 2,
-                            '&:hover': { transform: 'translateY(-2px)', bgcolor: '#fff' }
+                            bgcolor: active ? '#fff' : 'rgba(255,255,255,0.78)',
+                            borderRadius: 2.5,
+                            boxShadow: active ? '0 10px 22px rgba(15,23,42,0.10)' : '0 1px 0 rgba(15,23,42,0.05)',
+                            '&:hover': { transform: 'translateY(-2px)', bgcolor: '#fff', boxShadow: '0 10px 22px rgba(15,23,42,0.10)' }
                           }}
                         >
                           <Stack direction="row" spacing={2}>
-                            <Avatar variant="rounded" sx={{ bgcolor: active ? 'primary.main' : 'grey.300', width: 40, height: 40 }}>
-                              {(item.nameZh || 'H')[0]}
+                            <Avatar
+                              variant="rounded"
+                              sx={{
+                                width: 44,
+                                height: 44,
+                                fontWeight: 900,
+                                letterSpacing: 1,
+                                color: '#fff',
+                                background: active
+                                  ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 55%, #0ea5e9 100%)'
+                                  : 'linear-gradient(135deg, rgba(148,163,184,0.95) 0%, rgba(100,116,139,0.95) 100%)',
+                                boxShadow: active ? '0 14px 26px rgba(37, 99, 235, 0.25)' : '0 10px 18px rgba(15,23,42,0.10)',
+                              }}
+                            >
+                              {String(item.nameZh || 'H').slice(0, 1)}
                             </Avatar>
                             <Box sx={{ minWidth: 0, flex: 1 }}>
                               <Typography variant="subtitle2" noWrap fontWeight={600} color={active ? 'primary.main' : 'text.primary'}>
@@ -814,8 +882,17 @@ export default function HotelEdit() {
                 </Stack>
               </Stack>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
                     <Box sx={{ width: 4, height: 26, bgcolor: 'primary.main', borderRadius: 4 }} />
                     <Typography variant="h6" fontWeight={700}>基本信息</Typography>
@@ -1041,8 +1118,17 @@ export default function HotelEdit() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
                     <Box sx={{ width: 4, height: 26, bgcolor: 'secondary.main', borderRadius: 4 }} />
                     <Typography variant="h6" fontWeight={700}>媒体资料</Typography>
@@ -1082,8 +1168,17 @@ export default function HotelEdit() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                       <Box sx={{ width: 4, height: 26, bgcolor: 'success.main', borderRadius: 4 }} />
