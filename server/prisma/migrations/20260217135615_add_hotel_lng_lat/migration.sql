@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `hotel` ADD COLUMN `lat` DOUBLE NULL,
+    ADD COLUMN `lng` DOUBLE NULL;

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
     "@ant-design/icons": "^6.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -19,7 +20,9 @@
     "@reduxjs/toolkit": "^2.2.3",
     "antd": "^6.3.0",
     "axios": "^1.6.8",
+    "china-area-data": "^5.0.1",
     "dayjs": "^1.11.19",
+    "pinyin-pro": "^3.27.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-is": "^18.3.1",

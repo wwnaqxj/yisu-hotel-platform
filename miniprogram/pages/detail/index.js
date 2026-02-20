@@ -9,8 +9,10 @@ Page({
 
     navTop: 0,
     navHeight: 44,
+    navTotal: 44,
+    navSafe: 68,
 
-    bannerImages: [],
+    bannerMedias: [],
     facilities: [],
 
     checkIn: '',
@@ -21,7 +23,24 @@ Page({
 
     today: '',
 
-    selectedRoom: null
+    selectedRoom: null,
+
+    lng: null,
+    lat: null,
+    markers: [],
+    poisLoading: false,
+    poisError: '',
+    poisExpanded: false,
+    poiPanelOpen: false,
+    nearbySubway: [],
+    nearbySubwayTop: [],
+    nearbySubwayView: [],
+    nearbyBus: [],
+    nearbyBusTop: [],
+    nearbyBusView: [],
+    nearbyFood: [],
+    nearbyFoodTop: [],
+    nearbyFoodView: []
   },
 
   onLoad(options) {
@@ -41,11 +60,19 @@ Page({
     try {
       const sys = wx.getSystemInfoSync();
       const menu = wx.getMenuButtonBoundingClientRect();
-      const navTop = menu.top;
-      const navHeight = menu.height + (menu.top - sys.statusBarHeight) * 2;
-      this.setData({ navTop, navHeight });
+
+      const statusBarHeight = Number(sys.statusBarHeight || 0);
+      const navTop = statusBarHeight;
+
+      const gap = Math.max(0, menu.top - statusBarHeight);
+      const navHeight = menu.height + gap * 2;
+      const navTotal = navTop + navHeight;
+
+      const navSafe = navTotal + 24;
+
+      this.setData({ navTop, navHeight, navTotal, navSafe });
     } catch (e) {
-      this.setData({ navTop: 0, navHeight: 44 });
+      this.setData({ navTop: 0, navHeight: 44, navTotal: 44, navSafe: 68 });
     }
   },
 
@@ -151,10 +178,252 @@ Page({
     });
   },
 
-  normalizeImages(images) {
-    const val = images;
-    if (Array.isArray(val)) return val.filter(Boolean);
+  onPreviewMedia(e) {
+    const idx = Number(e?.currentTarget?.dataset?.index);
+    const { bannerMedias } = this.data;
+    const i = Number.isFinite(idx) ? idx : 0;
+    const list = Array.isArray(bannerMedias) ? bannerMedias : [];
+    if (!list.length) return;
+
+    const hasPreviewMedia = typeof wx.previewMedia === 'function';
+    if (hasPreviewMedia) {
+      const sources = list
+        .filter((x) => x && x.url)
+        .map((x) => ({
+          url: x.url,
+          type: x.type === 'video' ? 'video' : 'image',
+        }));
+
+      wx.previewMedia({
+        sources,
+        current: Math.min(Math.max(0, i), Math.max(0, sources.length - 1)),
+      });
+      return;
+    }
+
+    const images = list.filter((x) => x && x.type !== 'video' && x.url).map((x) => x.url);
+    if (!images.length) return;
+    const currentUrl = list[i] && list[i].type !== 'video' ? list[i].url : images[0];
+    wx.previewImage({
+      urls: images,
+      current: currentUrl,
+    });
+  },
+
+  normalizeMediaList(value) {
+    if (!value) return [];
+
+    // Prisma Json field may arrive as array/object, but in some cases could be a JSON string.
+    if (Array.isArray(value)) return value.filter(Boolean).map((v) => String(v));
+
+    if (typeof value === 'string') {
+      const s = value.trim();
+      if (!s) return [];
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map((v) => String(v));
+        if (typeof parsed === 'string') return [parsed].filter(Boolean).map((v) => String(v));
+        return [];
+      } catch (e) {
+        // treat as a single URL
+        return [s];
+      }
+    }
+
+    // Some backends may store as { list: [...] } or similar.
+    if (typeof value === 'object') {
+      const list = value.list || value.urls || value.items;
+      if (Array.isArray(list)) return list.filter(Boolean).map((v) => String(v));
+    }
+
     return [];
+  },
+
+  buildBannerMedias(hotel) {
+    const images = this.normalizeMediaList(hotel?.images);
+    const videos = this.normalizeMediaList(hotel?.videos);
+
+    const medias = [];
+    images.forEach((url) => medias.push({ type: 'image', url: this.toMediaProxyUrl(url) }));
+    videos.forEach((url) => medias.push({ type: 'video', url: this.toMediaProxyUrl(url) }));
+    return medias;
+  },
+
+  formatDistance(meters) {
+    const d = Number(meters);
+    if (!Number.isFinite(d) || d < 0) return '';
+    if (d < 1000) return `${Math.round(d)}m`;
+    return `${(d / 1000).toFixed(1)}km`;
+  },
+
+  buildMarkers(lng, lat) {
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return [];
+    return [
+      {
+        id: 1,
+        longitude: Number(lng),
+        latitude: Number(lat),
+        width: 28,
+        height: 28,
+        callout: {
+          content: '酒店位置',
+          display: 'ALWAYS',
+          padding: 6,
+          borderRadius: 6
+        }
+      }
+    ];
+  },
+
+  async fetchNearbyPois(lng, lat) {
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) {
+      const poisExpanded = !!this.data.poisExpanded;
+      this.setData({
+        nearbySubway: [],
+        nearbySubwayTop: [],
+        nearbySubwayView: [],
+        nearbyBus: [],
+        nearbyBusTop: [],
+        nearbyBusView: [],
+        nearbyFood: [],
+        nearbyFoodTop: [],
+        nearbyFoodView: [],
+        poisExpanded,
+      });
+      return;
+    }
+
+    this.setData({ poisLoading: true, poisError: '' });
+    try {
+      const q = (types) =>
+        request({
+          url: '/api/geo/nearby',
+          method: 'GET',
+          data: {
+            lng: Number(lng),
+            lat: Number(lat),
+            radius: 3000,
+            pageSize: 8,
+            types
+          }
+        });
+
+      const [subwayRes, busRes, foodRes] = await Promise.all([
+        q('150500'),
+        q('150700'),
+        q('050100')
+      ]);
+
+      const pick = (res) => {
+        const items = Array.isArray(res?.items) ? res.items : [];
+        return items
+          .filter((x) => x && x.name)
+          .map((x) => ({
+            id: x.id,
+            name: x.name,
+            address: x.address,
+            distance: x.distance,
+            distanceText: this.formatDistance(x.distance),
+            lng: x.lng,
+            lat: x.lat
+          }))
+          .filter((x) => Number.isFinite(Number(x.lng)) && Number.isFinite(Number(x.lat)));
+      };
+
+      const nearbySubway = pick(subwayRes);
+      const nearbySubwayTop = nearbySubway.slice(0, 1);
+      const nearbyBus = pick(busRes);
+      const nearbyBusTop = nearbyBus.slice(0, 1);
+      const nearbyFood = pick(foodRes);
+      const nearbyFoodTop = nearbyFood.slice(0, 1);
+
+      const poisExpanded = !!this.data.poisExpanded;
+
+      this.setData({
+        nearbySubway,
+        nearbySubwayTop,
+        nearbySubwayView: poisExpanded ? nearbySubway : nearbySubwayTop,
+        nearbyBus,
+        nearbyBusTop,
+        nearbyBusView: poisExpanded ? nearbyBus : nearbyBusTop,
+        nearbyFood,
+        nearbyFoodTop,
+        nearbyFoodView: poisExpanded ? nearbyFood : nearbyFoodTop,
+      });
+    } catch (e) {
+      this.setData({ poisError: e.message || '附近信息加载失败' });
+    } finally {
+      this.setData({ poisLoading: false });
+    }
+  },
+
+  onTogglePois() {
+    const next = !this.data.poisExpanded;
+    const nearbySubwayView = next ? this.data.nearbySubway : this.data.nearbySubwayTop;
+    const nearbyBusView = next ? this.data.nearbyBus : this.data.nearbyBusTop;
+    const nearbyFoodView = next ? this.data.nearbyFood : this.data.nearbyFoodTop;
+    this.setData({
+      poisExpanded: next,
+      nearbySubwayView,
+      nearbyBusView,
+      nearbyFoodView,
+    });
+  },
+
+  onOpenPoiPanel() {
+    this.setData({ poiPanelOpen: true });
+  },
+
+  onClosePoiPanel() {
+    this.setData({ poiPanelOpen: false });
+  },
+
+  onOpenLocation() {
+    const { lng, lat, hotel } = this.data;
+    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return;
+    wx.openLocation({
+      longitude: Number(lng),
+      latitude: Number(lat),
+      name: hotel?.nameZh || hotel?.nameEn || '酒店',
+      address: hotel?.address || ''
+    });
+  },
+
+  onOpenPoiLocation(e) {
+    const p = e?.currentTarget?.dataset || {};
+    const lng = Number(p.lng);
+    const lat = Number(p.lat);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+    wx.openLocation({
+      longitude: lng,
+      latitude: lat,
+      name: p.name || '',
+      address: p.address || ''
+    });
+  },
+
+  toMediaProxyUrl(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+
+    // If already proxied.
+    if (/\/api\/media\//.test(raw)) return raw;
+
+    // Try to extract: http(s)://host/<bucket>/<objectName>
+    const m = raw.match(/^https?:\/\/[^/]+\/([^/]+)\/(.+)$/);
+    if (!m) return raw;
+
+    const bucket = m[1];
+    const objectName = m[2];
+
+    const objectNameEncoded = objectName
+      .split('/')
+      .map((seg) => encodeURIComponent(seg))
+      .join('/');
+
+    const app = getApp();
+    const baseURL = app?.globalData?.baseURL || 'http://localhost:3001';
+    return `${baseURL}/api/media/${encodeURIComponent(bucket)}/${objectNameEncoded}`;
   },
 
   normalizeFacilities(facilities) {
@@ -180,15 +449,21 @@ Page({
           address: '示例地址',
           star: 5,
           city: '上海',
-          facilities: ['免费 WiFi', '停车场', '健身房', '早餐']
+          facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
+          lng: 121.4737,
+          lat: 31.2304
         },
-        bannerImages: [
-          'https://images.unsplash.com/photo-1501117716987-c8e1ecb210ff?auto=format&fit=crop&w=1200&q=60',
-          'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=60'
+        bannerMedias: [
+          { type: 'image', url: 'https://images.unsplash.com/photo-1501117716987-c8e1ecb210ff?auto=format&fit=crop&w=1200&q=60' },
+          { type: 'image', url: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=60' },
         ],
         facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
         rooms: [{ id: 'r1', name: '标准间', price: 299 }]
       });
+      const lng = 121.4737;
+      const lat = 31.2304;
+      this.setData({ lng, lat, markers: this.buildMarkers(lng, lat) });
+      this.fetchNearbyPois(lng, lat);
       return;
     }
 
@@ -196,9 +471,12 @@ Page({
       const data = await request({ url: `/api/hotel/detail/${id}` });
       const hotel = data.hotel || {};
       const rooms = (data.rooms || []).slice().sort((a, b) => Number(a.price) - Number(b.price));
-      const bannerImages = this.normalizeImages(hotel.images);
+      const bannerMedias = this.buildBannerMedias(hotel);
       const facilities = this.normalizeFacilities(hotel.facilities);
-      this.setData({ hotel, rooms, bannerImages, facilities });
+      const lng = hotel?.lng;
+      const lat = hotel?.lat;
+      this.setData({ hotel, rooms, bannerMedias, facilities, lng, lat, markers: this.buildMarkers(lng, lat) });
+      this.fetchNearbyPois(lng, lat);
     } catch (e) {
       this.setData({ error: e.message || '加载失败' });
     }

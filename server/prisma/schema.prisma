@@ -15,7 +15,7 @@ enum Role {
 enum HotelStatus {
   pending
   approved
-  rejected
+  rejected+
   offline
 }
 
@@ -42,6 +42,8 @@ model Hotel {
   star         Int
   openTime     String
 
+  description  String      @default("")
+
   status       HotelStatus @default(pending)
   rejectReason String      @default("")
 
@@ -50,6 +52,9 @@ model Hotel {
   videos       Json?
   nearby       Json?
   discount     Json?
+
+  lng          Float?
+  lat          Float?
 
   rooms        Room[]
   createdAt    DateTime @default(now())
