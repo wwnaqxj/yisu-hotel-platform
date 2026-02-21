@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="head">
+    <view class="sub">全屏模式</view>
+  </view>
+
+  <scroll-view class="msgs" scroll-y="true" scroll-with-animation="true" scroll-top="{{scrollTop}}">
+    <block wx:for="{{messages}}" wx:key="id">
+      <view class="row {{item.role === 'user' ? 'right' : 'left'}}">
+        <view class="bubble {{item.role}}">{{item.content}}</view>
+      </view>
+    </block>
+    <view style="height: 16rpx;"></view>
+  </scroll-view>
+
+  <view class="quick" wx:if="{{quickQuestions.length > 0}}">
+    <scroll-view scroll-x="true" class="quick-scroll">
+      <view class="q" wx:for="{{quickQuestions}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
+    </scroll-view>
+  </view>
+
+  <view class="compose">
+    <input class="ipt" placeholder="输入问题" value="{{input}}" bindinput="onInput" confirm-type="send" bindconfirm="onSend" />
+    <view class="send" bindtap="onSend">{{sending ? '发送中…' : '发送'}}</view>
+  </view>
+</view>

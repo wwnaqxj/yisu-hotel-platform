@@ -31,4 +31,6 @@
     <view style="height: 20rpx;"></view>
     <view class="btn" bindtap="onSearch">查询</view>
   </view>
+
+  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
 </view>

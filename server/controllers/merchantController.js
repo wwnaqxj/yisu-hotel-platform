@@ -8,6 +8,11 @@ function normalizeRoomItems(roomItems) {
     .map((r, idx) => ({
       name: r.name || `Room ${idx + 1}`,
       price: Number(r.price || 0),
+      bedType: r.bedType != null && String(r.bedType).trim() ? String(r.bedType).trim() : undefined,
+      area: r.area != null && r.area !== '' && Number.isFinite(Number(r.area)) ? Number(r.area) : undefined,
+      breakfast: r.breakfast != null && String(r.breakfast).trim() ? String(r.breakfast).trim() : undefined,
+      totalRooms: r.totalRooms != null && r.totalRooms !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
+      availableRooms: r.availableRooms != null && r.availableRooms !== '' && Number.isFinite(Number(r.availableRooms)) ? Math.max(0, Number(r.availableRooms)) : 0,
     }));
 }
 

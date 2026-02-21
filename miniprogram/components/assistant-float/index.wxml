@@ -1,0 +1,51 @@
+<movable-area class="af-area">
+  <movable-view
+    class="af-btn {{iconSrc ? 'img' : ''}}"
+    direction="all"
+    x="{{x}}"
+    y="{{y}}"
+    inertia="true"
+    out-of-bounds="false"
+    bindchange="onChange"
+    bindtap="onTap"
+  >
+    <view class="af-inner {{iconSrc ? 'img' : ''}}">
+      <image wx:if="{{iconSrc}}" class="af-icon" src="{{iconSrc}}" mode="aspectFit" />
+      <view wx:else>AI</view>
+    </view>
+    <view wx:if="{{iconSrc}}" class="af-caption">{{captionText}}</view>
+  </movable-view>
+
+  <view wx:if="{{open}}" class="af-mask" bindtap="onClose"></view>
+
+  <view class="af-panel {{open ? 'open' : ''}}">
+    <view class="af-head">
+      <view class="af-title">数字助手</view>
+      <view style="display:flex; gap: 18rpx; align-items:center;">
+        <view class="af-close" bindtap="onExpand">放大</view>
+        <view class="af-close" bindtap="onClose">关闭</view>
+      </view>
+    </view>
+
+    <scroll-view class="af-msgs" scroll-y="true" scroll-with-animation="true" scroll-top="{{scrollTop}}">
+      <block wx:for="{{messages}}" wx:key="id">
+        <view class="af-row {{item.role === 'user' ? 'right' : 'left'}}">
+          <view class="af-bubble {{item.role}}">{{item.content}}</view>
+        </view>
+      </block>
+      <view style="height: 16rpx;"></view>
+    </scroll-view>
+
+    <view class="af-quick" wx:if="{{quickQuestions.length > 0}}">
+      <scroll-view scroll-x="true" class="af-quick-scroll">
+        <view class="af-q" wx:for="{{quickQuestions}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
+      </scroll-view>
+    </view>
+
+    <view class="af-compose">
+      <input class="af-ipt" placeholder="输入问题，或按住说话" value="{{input}}" bindinput="onInput" confirm-type="send" bindconfirm="onSend" />
+      <view class="af-voice {{voiceReady ? '' : 'disabled'}}" bindtouchstart="onVoiceStart" bindtouchend="onVoiceEnd" bindtouchcancel="onVoiceCancel">{{voiceReady ? (recording ? '识别中…' : '按住说话') : '语音不可用'}}</view>
+      <view class="af-send" bindtap="onSend">{{sending ? '发送中…' : '发送'}}</view>
+    </view>
+  </view>
+</movable-area>

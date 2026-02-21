@@ -15,12 +15,19 @@ import {
   CircularProgress,
   Container,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
   Grid,
   IconButton,
   InputAdornment,
+  InputLabel,
   List,
   Menu,
   MenuItem,
+  OutlinedInput,
   Paper,
   Snackbar,
   Stack,
@@ -41,6 +48,8 @@ import {
   Star as StarIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
   VideoCameraBack as VideoIcon,
   RoomService as RoomIcon, // 房型图标
   Store as StoreIcon,
@@ -50,7 +59,7 @@ import {
 
 import { useApi } from '../../../hooks/useApi';
 import { useAuth } from '../../../hooks/useAuth.js';
-import { logout as logoutAction } from '../../../store/userSlice.js';
+import { logout as logoutAction, setUser } from '../../../store/userSlice.js';
 
 import pcaa from 'china-area-data';
 
@@ -127,6 +136,22 @@ export default function HotelEdit() {
   const { user } = useAuth();
   const theme = useTheme();
 
+  const parseBreakfastValue = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return { has: 'none', count: '' };
+    if (/不含|无早|无早餐|无早饭|不含早|不含早餐/i.test(s)) return { has: 'none', count: '' };
+    const m = s.match(/(\d+)\s*份/);
+    if (m) return { has: 'has', count: m[1] };
+    return { has: 'has', count: '' };
+  };
+
+  const formatBreakfastValue = (has, count) => {
+    if (has !== 'has') return '无早';
+    const c = String(count || '').trim();
+    if (!c) return '含早';
+    return `含早 ${c}份`;
+  };
+
   const municipalityNames = useMemo(() => new Set(['北京市', '天津市', '上海市', '重庆市']), []);
 
   const provinceOptions = useMemo(() => {
@@ -180,7 +205,7 @@ export default function HotelEdit() {
     facilities: [],
     images: [],
     videos: [],
-    roomTypes: [{ name: '标准间', price: 299 }],
+    roomTypes: [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
   });
 
   const provinceName = useMemo(() => {
@@ -225,6 +250,22 @@ export default function HotelEdit() {
 
   // 用户菜单锚点
   const [menuAnchor, setMenuAnchor] = useState(null);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileUsername, setProfileUsername] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    setProfileUsername(user?.username || '');
+  }, [profileOpen, user?.username]);
 
   // 计算当前选中的酒店对象（用于显示状态等）
   const selectedHotel = useMemo(() => {
@@ -284,7 +325,7 @@ export default function HotelEdit() {
       facilities: [],
       images: [],
       videos: [],
-      roomTypes: [{ name: '标准间', price: 299 }],
+      roomTypes: [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
     });
   }
 
@@ -346,8 +387,16 @@ export default function HotelEdit() {
         videos: ensureArray(h.videos),
         roomTypes:
           rooms.length > 0
-            ? rooms.map((r) => ({ name: r.name || '', price: Number(r.price || 0) }))
-            : [{ name: '标准间', price: 299 }],
+            ? rooms.map((r) => ({
+                name: r.name || '',
+                price: Number(r.price || 0),
+                bedType: r.bedType || '',
+                area: r.area != null ? String(r.area) : '',
+                breakfast: r.breakfast || '无早',
+                totalRooms: r.totalRooms != null && Number.isFinite(Number(r.totalRooms)) ? Number(r.totalRooms) : 0,
+                availableRooms: r.availableRooms != null && Number.isFinite(Number(r.availableRooms)) ? Number(r.availableRooms) : 0,
+              }))
+            : [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
       });
     } catch (e) {
       notify('error', e.message || '加载详情失败');
@@ -364,7 +413,7 @@ export default function HotelEdit() {
   function setRoomField(index, key, value) {
     setValues((v) => {
       const next = v.roomTypes.slice();
-      const row = { ...(next[index] || { name: '', price: 0 }) };
+      const row = { ...(next[index] || { name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }) };
       row[key] = value;
       next[index] = row;
       return { ...v, roomTypes: next };
@@ -372,14 +421,20 @@ export default function HotelEdit() {
   }
 
   function addRoom() {
-    setValues((v) => ({ ...v, roomTypes: [...v.roomTypes, { name: '', price: 0 }] }));
+    setValues((v) => ({
+      ...v,
+      roomTypes: [...v.roomTypes, { name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }]
+    }));
   }
 
   function removeRoom(index) {
     setValues((v) => {
       const next = v.roomTypes.slice();
       next.splice(index, 1);
-      return { ...v, roomTypes: next.length ? next : [{ name: '', price: 0 }] };
+      return {
+        ...v,
+        roomTypes: next.length ? next : [{ name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }]
+      };
     });
   }
 
@@ -593,7 +648,15 @@ export default function HotelEdit() {
         images: values.images,
 
         videos: values.videos,
-        roomTypes: values.roomTypes.map((r) => ({ name: r.name, price: Number(r.price) })),
+        roomTypes: values.roomTypes.map((r) => ({
+          name: r.name,
+          price: Number(r.price),
+          bedType: String(r.bedType || '').trim() || undefined,
+          area: r.area != null && String(r.area).trim() !== '' ? Number(r.area) : undefined,
+          breakfast: String(r.breakfast || '').trim() || undefined,
+          totalRooms: r.totalRooms != null && String(r.totalRooms).trim() !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
+          availableRooms: r.availableRooms != null && String(r.availableRooms).trim() !== '' && Number.isFinite(Number(r.availableRooms)) ? Math.max(0, Number(r.availableRooms)) : 0,
+        })),
       };
 
       if (selectedId) {
@@ -629,6 +692,74 @@ export default function HotelEdit() {
     }
     return <Chip label={label} color={color} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 'bold' }} />;
   };
+
+  async function handleSaveAll() {
+    if (pwdLoading || profileSaving) return;
+
+    const nextUsername = String(profileUsername || '').trim();
+    const currentUsername = String(user?.username || '').trim();
+    const usernameChanged = nextUsername && nextUsername !== currentUsername;
+
+    const oldPwd = String(oldPassword || '');
+    const newPwd = String(newPassword || '');
+    const confirmPwd = String(confirmPassword || '');
+    const hasAnyPwdInput = Boolean(oldPwd.trim() || newPwd.trim() || confirmPwd.trim());
+
+    if (!usernameChanged && !hasAnyPwdInput) {
+      return notify('info', '暂无修改');
+    }
+
+    if (usernameChanged) {
+      setProfileSaving(true);
+      try {
+        const res = await api.put('/api/auth/profile', { username: nextUsername });
+        dispatch(setUser(res?.data?.user || { ...(user || {}), username: nextUsername }));
+      } catch (e) {
+        notify('error', e?.message || '账号保存失败');
+        return;
+      } finally {
+        setProfileSaving(false);
+      }
+    }
+
+    if (hasAnyPwdInput) {
+      if (!oldPwd.trim()) return notify('warning', '请输入旧密码');
+      if (!newPwd.trim()) return notify('warning', '请输入新密码');
+      if (newPwd.length < 6) return notify('warning', '新密码至少 6 位');
+      if (newPwd !== confirmPwd) return notify('warning', '两次输入的新密码不一致');
+
+      setPwdLoading(true);
+      try {
+        await api.put('/api/auth/password', { oldPassword: oldPwd, newPassword: newPwd });
+        notify('success', '密码已修改，请重新登录');
+        setProfileOpen(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        dispatch(logoutAction());
+        navigate('/admin/login', { replace: true });
+        return;
+      } catch (e) {
+        const rawMsg =
+          e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e?.response?.data?.msg ||
+          e?.message ||
+          '修改失败';
+        const msg = String(rawMsg || '修改失败');
+        if (/old\s*password|旧密码|原密码|password\s*incorrect|incorrect\s*password|密码.*不(正|对)确/i.test(msg)) {
+          notify('error', '原来的密码输入不正确');
+        } else {
+          notify('error', msg || '修改失败');
+        }
+        return;
+      } finally {
+        setPwdLoading(false);
+      }
+    }
+
+    notify('success', '已保存');
+  }
 
   return (
     <Box
@@ -718,7 +849,7 @@ export default function HotelEdit() {
               <MenuItem
                 onClick={() => {
                   setMenuAnchor(null);
-                  navigate('/admin/profile');
+                  setProfileOpen(true);
                 }}
               >
                 <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> 个人中心
@@ -738,6 +869,103 @@ export default function HotelEdit() {
           </Stack>
         </Toolbar>
       </AppBar>
+
+      <Dialog
+        open={profileOpen}
+        onClose={() => {
+          if (pwdLoading || profileSaving) return;
+          setProfileOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 900 }}>个人中心</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="账号"
+              value={profileUsername}
+              onChange={(e) => setProfileUsername(e.target.value)}
+              fullWidth
+              helperText="可修改账号/密码，完成后点击保存修改"
+            />
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="old-password">旧密码</InputLabel>
+              <OutlinedInput
+                id="old-password"
+                type={showOldPassword ? 'text' : 'password'}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                label="旧密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowOldPassword((v) => !v)} edge="end" size="small">
+                      {showOldPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="new-password">新密码</InputLabel>
+              <OutlinedInput
+                id="new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                onPaste={(e) => e.preventDefault()}
+                onDrop={(e) => e.preventDefault()}
+                onDragOver={(e) => e.preventDefault()}
+                label="新密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowNewPassword((v) => !v)} edge="end" size="small">
+                      {showNewPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="confirm-password">确认新密码</InputLabel>
+              <OutlinedInput
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onPaste={(e) => e.preventDefault()}
+                onDrop={(e) => e.preventDefault()}
+                onDragOver={(e) => e.preventDefault()}
+                label="确认新密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowConfirmPassword((v) => !v)} edge="end" size="small">
+                      {showConfirmPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              if (pwdLoading || profileSaving) return;
+              setProfileOpen(false);
+            }}
+            color="inherit"
+          >
+            取消
+          </Button>
+          <Button variant="contained" onClick={handleSaveAll} disabled={pwdLoading || profileSaving}>
+            {pwdLoading || profileSaving ? '保存中...' : '保存修改'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Toolbar />
 
@@ -1205,6 +1433,84 @@ export default function HotelEdit() {
                               fullWidth
                               InputProps={{ disableUnderline: true, style: { fontWeight: 600, fontSize: '0.95rem' } }}
                             />
+                            <Grid container spacing={1.5} sx={{ mt: 1 }}>
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="床型"
+                                  placeholder="如：1.8m大床/1.2m单人床"
+                                  value={r.bedType || ''}
+                                  onChange={(ev) => setRoomField(idx, 'bedType', ev.target.value)}
+                                  fullWidth
+                                />
+                              </Grid>
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="面积(㎡)"
+                                  placeholder="如：35"
+                                  type="number"
+                                  value={r.area ?? ''}
+                                  onChange={(ev) => setRoomField(idx, 'area', ev.target.value)}
+                                  fullWidth
+                                />
+                              </Grid>
+                              {(() => {
+                                const b = parseBreakfastValue(r.breakfast);
+                                return (
+                                  <>
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        select
+                                        size="small"
+                                        label="早餐"
+                                        value={b.has}
+                                        onChange={(ev) => {
+                                          const has = ev.target.value;
+                                          setRoomField(idx, 'breakfast', formatBreakfastValue(has, b.count));
+                                        }}
+                                        fullWidth
+                                      >
+                                        <MenuItem value="none">无早餐</MenuItem>
+                                        <MenuItem value="has">有早餐</MenuItem>
+                                      </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        select
+                                        size="small"
+                                        label="早餐份数"
+                                        value={b.has === 'has' ? (b.count || '') : ''}
+                                        disabled={b.has !== 'has'}
+                                        onChange={(ev) => {
+                                          const count = ev.target.value;
+                                          setRoomField(idx, 'breakfast', formatBreakfastValue('has', count));
+                                        }}
+                                        fullWidth
+                                      >
+                                        <MenuItem value="">默认</MenuItem>
+                                        <MenuItem value="1">1份</MenuItem>
+                                        <MenuItem value="2">2份</MenuItem>
+                                        <MenuItem value="3">3份</MenuItem>
+                                        <MenuItem value="4">4份</MenuItem>
+                                      </TextField>
+                                    </Grid>
+                                  </>
+                                );
+                              })()}
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="总房间数"
+                                  type="number"
+                                  value={r.totalRooms ?? 0}
+                                  onChange={(ev) => setRoomField(idx, 'totalRooms', ev.target.value)}
+                                  fullWidth
+                                  InputProps={{ inputProps: { min: 0 } }}
+                                />
+                              </Grid>
+                              
+                            </Grid>
                             <TextField
                               variant="standard"
                               placeholder="0"

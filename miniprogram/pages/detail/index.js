@@ -5,6 +5,7 @@ Page({
     id: '',
     hotel: {},
     rooms: [],
+    roomsAll: [],
     error: '',
 
     navTop: 0,
@@ -18,7 +19,7 @@ Page({
     checkIn: '',
     checkOut: '',
     nights: 1,
-    guests: 2,
+    guests: 1,
     roomCount: 1,
 
     today: '',
@@ -45,7 +46,6 @@ Page({
 
   onLoad(options) {
     const id = options.id || 'demo';
-    this.initNavMetrics();
 
     const today = this.formatDate(new Date());
     const checkIn = options.checkIn || today;
@@ -68,7 +68,7 @@ Page({
       const navHeight = menu.height + gap * 2;
       const navTotal = navTop + navHeight;
 
-      const navSafe = navTotal + 24;
+      const navSafe = navTotal;
 
       this.setData({ navTop, navHeight, navTotal, navSafe });
     } catch (e) {
@@ -133,12 +133,27 @@ Page({
 
   decRooms() {
     const v = Math.max(1, Number(this.data.roomCount) - 1);
-    this.setData({ roomCount: v });
+    this.setData({ roomCount: v }, () => this.applyRoomFilter());
   },
 
   incRooms() {
     const v = Math.min(10, Number(this.data.roomCount) + 1);
-    this.setData({ roomCount: v });
+    this.setData({ roomCount: v }, () => this.applyRoomFilter());
+  },
+
+  applyRoomFilter() {
+    const roomCount = Math.max(1, Number(this.data.roomCount || 1));
+    const list = Array.isArray(this.data.roomsAll) ? this.data.roomsAll : [];
+
+    const filtered = list.filter((r) => {
+      const avail = r && r.availableRooms != null ? Number(r.availableRooms) : NaN;
+      if (!Number.isFinite(avail)) return true;
+      return avail >= roomCount;
+    });
+
+    const selected = this.data.selectedRoom;
+    const keepSelected = selected && filtered.some((x) => String(x.id) === String(selected.id));
+    this.setData({ rooms: filtered, selectedRoom: keepSelected ? selected : null });
   },
 
   calcTotal(price) {
@@ -458,8 +473,9 @@ Page({
           { type: 'image', url: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=60' },
         ],
         facilities: ['免费 WiFi', '停车场', '健身房', '早餐'],
-        rooms: [{ id: 'r1', name: '标准间', price: 299 }]
+        roomsAll: [{ id: 'r1', name: '标准间', price: 299, totalRooms: 10, availableRooms: 10 }]
       });
+      this.applyRoomFilter();
       const lng = 121.4737;
       const lat = 31.2304;
       this.setData({ lng, lat, markers: this.buildMarkers(lng, lat) });
@@ -475,7 +491,7 @@ Page({
       const facilities = this.normalizeFacilities(hotel.facilities);
       const lng = hotel?.lng;
       const lat = hotel?.lat;
-      this.setData({ hotel, rooms, bannerMedias, facilities, lng, lat, markers: this.buildMarkers(lng, lat) });
+      this.setData({ hotel, roomsAll: rooms, bannerMedias, facilities, lng, lat, markers: this.buildMarkers(lng, lat) }, () => this.applyRoomFilter());
       this.fetchNearbyPois(lng, lat);
     } catch (e) {
       this.setData({ error: e.message || '加载失败' });

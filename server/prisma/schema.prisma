@@ -73,6 +73,13 @@ model Room {
   name  String
   price Int
 
+  bedType   String?
+  area      Int?
+  breakfast String?
+
+  totalRooms     Int   @default(0)
+  availableRooms Int   @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

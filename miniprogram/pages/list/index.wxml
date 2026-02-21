@@ -28,4 +28,6 @@
     <text wx:elif="{{hasMore}}">上拉加载更多</text>
     <text wx:else>没有更多了</text>
   </view>
+
+  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
 </view>

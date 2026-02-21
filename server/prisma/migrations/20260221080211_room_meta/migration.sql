@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `room` ADD COLUMN `area` INTEGER NULL,
+    ADD COLUMN `bedType` VARCHAR(191) NULL,
+    ADD COLUMN `breakfast` VARCHAR(191) NULL;
