@@ -32,5 +32,5 @@
     <view class="btn" bindtap="onSearch">查询</view>
   </view>
 
-  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.jpg" />
 </view>

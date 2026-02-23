@@ -29,5 +29,5 @@
     <text wx:else>没有更多了</text>
   </view>
 
-  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.jpg" />
 </view>

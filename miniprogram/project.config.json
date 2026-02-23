@@ -10,6 +10,7 @@
     "enhance": true,
     "postcss": true,
     "minified": true,
+    "ignoreDevUnusedFiles": false,
     "compileWorklet": false,
     "uglifyFileName": false,
     "uploadWithSourceMap": true,
