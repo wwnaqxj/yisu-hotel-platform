@@ -4,6 +4,7 @@
   "navigationBarTextStyle": "white",
   "backgroundColor": "#f2f4f8",
   "usingComponents": {
-    "assistant-float": "/components/assistant-float/index"
+    "assistant-float": "/components/assistant-float/index",
+    "mobile-calendar": "/components/mobile/calendar/index"
   }
 }

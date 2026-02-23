@@ -75,9 +75,5 @@
     <view class="btn" bindtap="onSearch">查询</view>
   </view>
 
-<<<<<<< HEAD
   <assistant-float iconSrc="/components/assets/ai.jpg" />
-=======
-  <assistant-float iconSrc="/components/assets/ai.png" />
->>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
 </view>

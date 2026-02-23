@@ -1,6 +1,46 @@
 const { httpError } = require('../utils/errors');
 const { getPrisma } = require('../prismaClient');
 
+function apiBase(req) {
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host = req.get('host');
+  return `${proto}://${host}`;
+}
+
+function toMediaProxyUrl(req, rawUrl) {
+  const u = String(rawUrl || '').trim();
+  if (!u) return u;
+  if (/\/api\/media\//.test(u)) return u;
+
+  try {
+    const parsed = new URL(u);
+    const pathname = parsed.pathname || '';
+    // MinIO public URL typically looks like: http://host:9001/<bucket>/<object>
+    // Example: http://localhost:9001/yisu/images/xxx.png
+    if (/^\/[\w-]+\//.test(pathname)) {
+      return `${apiBase(req)}/api/media${pathname}`;
+    }
+    return u;
+  } catch (e) {
+    // If it's already a relative path like /yisu/images/xxx.png
+    if (u.startsWith('/')) {
+      if (/^\/[\w-]+\//.test(u)) return `${apiBase(req)}/api/media${u}`;
+    }
+    return u;
+  }
+}
+
+function normalizeMediaFields(req, obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const fields = ['images', 'videos', 'medias', 'bannerMedias'];
+  for (const f of fields) {
+    if (Array.isArray(obj[f])) {
+      obj[f] = obj[f].map((x) => toMediaProxyUrl(req, x));
+    }
+  }
+  return obj;
+}
+
 function normalizeNumber(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -46,7 +86,7 @@ async function list(req, res, next) {
       // keep response shape compatible with existing frontends
       const { rooms, ...rest } = h;
       return {
-        ...rest,
+        ...normalizeMediaFields(req, { ...rest }),
         price: typeof minPrice === 'number' ? minPrice : undefined,
         minPrice: typeof minPrice === 'number' ? minPrice : undefined,
       };
@@ -70,7 +110,10 @@ function detail(req, res, next) {
       })
       .then((hotel) => {
         if (!hotel) throw httpError(404, 'hotel not found');
-        res.json({ hotel, rooms: hotel.rooms || [] });
+        const { rooms, ...rest } = hotel;
+        const normalizedHotel = normalizeMediaFields(req, { ...rest });
+        const normalizedRooms = (rooms || []).map((r) => normalizeMediaFields(req, { ...r }));
+        res.json({ hotel: normalizedHotel, rooms: normalizedRooms });
       })
       .catch(next);
   } catch (e) {

@@ -22,6 +22,10 @@ Page({
     guests: 1,
     roomCount: 1,
 
+    calendarOpen: false,
+    checkInBrief: '',
+    checkOutBrief: '',
+
     today: '',
 
     selectedRoom: null,
@@ -51,9 +55,14 @@ Page({
     const checkIn = options.checkIn || today;
     const checkOut = options.checkOut || this.addDays(checkIn, 1);
 
-    this.setData({ id, checkIn, checkOut, today });
+    this.setData({ id, checkIn, checkOut, today, calendarOpen: false });
     this.calcNights();
+    this.updateDateBrief();
     this.fetchDetail();
+  },
+
+  toggleCalendar() {
+    this.setData({ calendarOpen: !this.data.calendarOpen });
   },
 
   initNavMetrics() {
@@ -91,12 +100,29 @@ Page({
     if (checkOut && checkOut <= checkIn) checkOut = this.addDays(checkIn, 1);
     this.setData({ checkIn, checkOut });
     this.calcNights();
+    this.updateDateBrief();
   },
 
   onCheckOutChange(e) {
     const checkOut = e.detail.value;
     this.setData({ checkOut });
     this.calcNights();
+    this.updateDateBrief();
+  },
+
+  onCalendarChange(e) {
+    const checkIn = e?.detail?.checkIn;
+    const checkOut = e?.detail?.checkOut;
+    if (!checkIn) return;
+    this.setData({ checkIn, checkOut });
+    if (checkOut && checkOut > checkIn) this.calcNights();
+    else this.setData({ nights: 1 });
+
+    this.updateDateBrief();
+
+    if (checkOut && checkOut > checkIn) {
+      this.setData({ calendarOpen: false });
+    }
   },
 
   calcNights() {
@@ -105,6 +131,29 @@ Page({
     const outTs = Date.parse(checkOut);
     const diff = Number.isFinite(inTs) && Number.isFinite(outTs) ? Math.floor((outTs - inTs) / 86400000) : 1;
     this.setData({ nights: diff > 0 ? diff : 1 });
+  },
+
+  formatBrief(dateStr) {
+    const ts = Date.parse(dateStr);
+    if (!Number.isFinite(ts)) return '';
+    const d = new Date(ts);
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const md = `${m}月${day}日`;
+
+    const today = this.data.today;
+    const tomorrow = today ? this.addDays(today, 1) : '';
+    if (today && dateStr === today) return `${md}今天`;
+    if (tomorrow && dateStr === tomorrow) return `${md}明天`;
+    return md;
+  },
+
+  updateDateBrief() {
+    const { checkIn, checkOut } = this.data;
+    this.setData({
+      checkInBrief: this.formatBrief(checkIn),
+      checkOutBrief: this.formatBrief(checkOut),
+    });
   },
 
   addDays(dateStr, days) {

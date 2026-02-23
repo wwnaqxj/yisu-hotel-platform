@@ -137,25 +137,23 @@
     <!-- Calendar + Guests + Nights Banner -->
     <view class="card banner2">
       <view class="banner2-title">入住信息</view>
-      <view class="banner2-row">
-        <view class="date-block">
-          <view class="date-label">入住</view>
-          <picker mode="date" value="{{checkIn}}" start="{{today}}" bindchange="onCheckInChange">
-            <view class="date-value">{{checkIn}}</view>
-          </picker>
-        </view>
 
-        <view class="mid">
-          <view class="nights">{{nights}} 晚</view>
-          <view class="line"></view>
+      <view class="date-summary" bindtap="toggleCalendar">
+        <view class="date-summary-left">
+          <text class="date-summary-text">{{checkInBrief}} - {{checkOutBrief}}</text>
         </view>
+        <view class="date-summary-right">
+          <text class="date-summary-nights">共{{nights}}晚</text>
+          <text class="date-summary-arrow">{{calendarOpen ? '▲' : '▼'}}</text>
+        </view>
+      </view>
 
-        <view class="date-block">
-          <view class="date-label">离店</view>
-          <picker mode="date" value="{{checkOut}}" start="{{today}}" bindchange="onCheckOutChange">
-            <view class="date-value">{{checkOut}}</view>
-          </picker>
-        </view>
+      <view wx:if="{{calendarOpen}}" class="date-calendar">
+        <mobile-calendar
+          checkIn="{{checkIn}}"
+          checkOut="{{checkOut}}"
+          bindchange="onCalendarChange"
+        />
       </view>
 
       <view class="banner2-row2">
@@ -212,9 +210,5 @@
     <view class="footer-space"></view>
   </view>
 
-<<<<<<< HEAD
   <assistant-float iconSrc="/components/assets/ai.jpg" />
-=======
-  <assistant-float iconSrc="/components/assets/ai.png" />
->>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
 </view>
