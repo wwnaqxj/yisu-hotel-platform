@@ -17,14 +17,14 @@ async function list(req, res, next) {
     if (status) where.status = status;
     else where.status = 'approved';
 
-    if (city) where.city = { contains: String(city), mode: 'insensitive' };
+    if (city) where.city = { contains: String(city) };
 
     if (keyword) {
       const kw = String(keyword);
       where.OR = [
-        { nameZh: { contains: kw, mode: 'insensitive' } },
-        { nameEn: { contains: kw, mode: 'insensitive' } },
-        { address: { contains: kw, mode: 'insensitive' } },
+        { nameZh: { contains: kw } },
+        { nameEn: { contains: kw } },
+        { address: { contains: kw } },
       ];
     }
 

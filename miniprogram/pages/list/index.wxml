@@ -1,33 +1,230 @@
 <view class="container">
-  <view class="card">
-    <view style="font-weight:600;">条件</view>
-    <view style="margin-top:10rpx; font-size:24rpx; opacity:.7;">
-      城市：{{query.city || '-'}}
+
+  <!-- ══════════ HEADER ══════════ -->
+  <view class="header">
+
+    <!-- Row 1: City + Date + Nights -->
+    <view class="header-row1">
+      <picker mode="selector" range="{{cities}}" bindchange="onCityChange">
+        <view class="city-btn">
+          <text class="city-text">{{query.city || '城市'}}</text>
+          <text class="caret">▾</text>
+        </view>
+      </picker>
+
+      <view class="divider-v"></view>
+
+      <view class="date-block">
+        <picker mode="date" value="{{query.checkIn}}" bindchange="onCheckInChange">
+          <view class="date-item">
+            <text class="date-label">入住</text>
+            <text class="date-val">{{query.checkInShort}}</text>
+          </view>
+        </picker>
+        <view class="nights-badge">
+          <text>{{nights}}晚</text>
+        </view>
+        <picker mode="date" value="{{query.checkOut}}" bindchange="onCheckOutChange">
+          <view class="date-item">
+            <text class="date-label">离店</text>
+            <text class="date-val">{{query.checkOutShort}}</text>
+          </view>
+        </picker>
+      </view>
     </view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">
-      关键词：{{query.keyword || '-'}}
+
+    <!-- Row 2: Search -->
+    <view class="search-row">
+      <view class="search-box" bindtap="openSearch">
+        <text class="search-icon">🔍</text>
+        <text class="search-placeholder">{{query.keyword || '酒店名/位置/品牌'}}</text>
+      </view>
+      <view class="search-clear" wx:if="{{query.keyword}}" bindtap="clearKeyword">✕</view>
     </view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">
-      日期：{{query.checkIn || '-'}} - {{query.checkOut || '-'}}
+
+    <!-- Row 3: Filter tabs -->
+    <view class="filter-tabs">
+      <view class="filter-tab {{activeFilter==='sort' ? 'tab-active' : ''}}" data-type="sort" bindtap="onFilterTap">
+        <text>{{currentSortLabel}}</text>
+        <text class="tab-caret {{activeFilter==='sort' ? 'caret-up' : ''}}">▾</text>
+      </view>
+      <view class="filter-tab {{activeFilter==='priceStar' ? 'tab-active' : ''}} {{(selectedPriceRange || selectedStar) ? 'tab-selected' : ''}}" data-type="priceStar" bindtap="onFilterTap">
+        <text>价格/星级</text>
+        <text class="tab-caret {{activeFilter==='priceStar' ? 'caret-up' : ''}}">▾</text>
+      </view>
+      <view class="filter-tab {{activeFilter==='more' ? 'tab-active' : ''}} {{selectedFacilities.length ? 'tab-selected' : ''}}" data-type="more" bindtap="onFilterTap">
+        <text>更多筛选</text>
+        <text wx:if="{{selectedFacilities.length}}" class="filter-badge">{{selectedFacilities.length}}</text>
+      </view>
     </view>
   </view>
 
-  <view style="height: 16rpx;"></view>
+  <!-- ══════════ FILTER PANELS ══════════ -->
 
-  <view wx:for="{{items}}" wx:key="id" class="card" style="margin-bottom: 16rpx;" bindtap="onItemTap" data-id="{{item.id}}">
-    <view style="display:flex; justify-content:space-between; gap: 16rpx;">
-      <view style="font-weight:600;">{{item.nameZh || item.nameEn || '未命名酒店'}}</view>
-      <view style="font-weight:600;">¥ {{item.price || '-'}}</view>
+  <!-- Overlay mask -->
+  <view wx:if="{{activeFilter}}" class="overlay-mask" bindtap="closeFilter"></view>
+
+  <!-- Sort Panel -->
+  <view class="filter-panel {{activeFilter==='sort' ? 'panel-show' : ''}}">
+    <view class="panel-title">排序方式</view>
+    <view class="sort-options">
+      <view
+        wx:for="{{sortOptions}}" wx:key="key"
+        class="sort-opt {{currentSort===item.key ? 'sort-opt-active' : ''}}"
+        data-sort="{{item.key}}" data-label="{{item.label}}" bindtap="onSortSelect">
+        <text>{{item.label}}</text>
+        <text wx:if="{{currentSort===item.key}}" class="check-icon">✓</text>
+      </view>
     </view>
-    <view style="margin-top:10rpx; font-size:24rpx; opacity:.7;">{{item.address || ''}}</view>
-    <view style="margin-top:6rpx; font-size:24rpx; opacity:.7;">星级：{{item.star || '-'}}</view>
   </view>
 
-  <view style="text-align:center; padding: 20rpx 0; font-size:24rpx; opacity:.7;">
-    <text wx:if="{{loading}}">加载中...</text>
-    <text wx:elif="{{hasMore}}">上拉加载更多</text>
-    <text wx:else>没有更多了</text>
+  <!-- Price/Star Panel -->
+  <view class="filter-panel {{activeFilter==='priceStar' ? 'panel-show' : ''}}">
+    <view class="panel-title">价格区间（¥/晚）</view>
+    <mobile-range-slider
+      min="50"
+      max="1000"
+      step="50"
+      low="{{selectedPriceRange ? selectedPriceRange.min : 50}}"
+      high="{{selectedPriceRange ? selectedPriceRange.max : 1000}}"
+      bindchange="onFilterPriceRangeChange"
+    />
+
+    <view class="panel-title" style="margin-top:30rpx">星级要求</view>
+    <view class="chip-row">
+      <view
+        wx:for="{{[3,4,5]}}" wx:key="*this"
+        class="chip star-chip {{selectedStar===item ? 'chip-active' : ''}}"
+        data-star="{{item}}" bindtap="onStarSelect">
+        <text>{{item}}星</text>
+        <text class="star-emoji">★</text>
+      </view>
+    </view>
+
+    <view class="panel-footer">
+      <view class="btn-reset" bindtap="resetPriceStar">重 置</view>
+      <view class="btn-confirm" bindtap="applyFilter">确 定</view>
+    </view>
   </view>
 
+<<<<<<< HEAD
   <assistant-float iconSrc="/components/assets/ai.jpg" />
+=======
+  <!-- More Filter Panel -->
+  <view class="filter-panel {{activeFilter==='more' ? 'panel-show' : ''}}">
+    <view class="panel-title">设施/服务</view>
+    <view class="chip-row">
+      <view
+        wx:for="{{facilities}}" wx:key="*this"
+        class="chip {{selectedFacilities.indexOf(item) !== -1 ? 'chip-active' : ''}}"
+        data-index="{{index}}" bindtap="toggleFacility">
+        {{item}}
+      </view>
+    </view>
+    <view class="panel-footer">
+      <view class="btn-reset" bindtap="resetMore">重 置</view>
+      <view class="btn-confirm" bindtap="applyFilter">确 定</view>
+    </view>
+  </view>
+
+  <!-- Search Input Modal -->
+  <view wx:if="{{showSearchInput}}" class="search-modal" catchtap="noop">
+    <view class="search-modal-inner">
+      <input
+        class="search-modal-input"
+        placeholder="搜索酒店名/位置/品牌"
+        value="{{query.keyword}}"
+        focus="{{true}}"
+        bindinput="onSearchInput"
+        bindconfirm="onSearchConfirm"
+      />
+      <view class="search-modal-btn" bindtap="onSearchConfirm">搜索</view>
+      <view class="search-modal-cancel" bindtap="closeSearch">取消</view>
+    </view>
+  </view>
+
+  <!-- ══════════ HOTEL LIST ══════════ -->
+  <scroll-view
+    class="list-scroll"
+    scroll-y
+    bindscrolltolower="onReachBottom"
+    lower-threshold="100"
+  >
+    <!-- Result Count -->
+    <view class="result-count" wx:if="{{!loading || items.length > 0}}">
+      共找到 <text class="count-num">{{total}}</text> 家酒店
+    </view>
+
+    <!-- Hotel Cards -->
+    <view
+      class="hotel-card"
+      wx:for="{{items}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onItemTap"
+    >
+      <!-- Cover Image（无图时占位） -->
+      <view class="card-img-wrap">
+        <image class="card-img" src="{{item.cardImage || '/components/assets/ai.png'}}" mode="aspectFill" lazy-load></image>
+        <view class="star-ribbon">
+          <text wx:for="{{item.starArr}}" wx:key="*this" class="star-icon">★</text>
+        </view>
+        <view class="hot-tag" wx:if="{{item.score >= 4.8}}">人气爆款</view>
+      </view>
+
+      <!-- Info -->
+      <view class="card-body">
+        <view class="card-name">{{item.nameZh || item.nameEn || '未命名酒店'}}</view>
+
+        <view class="card-score-row" wx:if="{{item.score != null}}">
+          <view class="score-pill">{{item.score}}</view>
+          <view class="score-desc">
+            <text class="score-label">{{item.scoreLabel}}</text>
+            <text class="score-count"> · {{item.reviewCount}}条评价</text>
+          </view>
+        </view>
+
+        <view class="card-addr">
+          <text class="addr-icon">📍</text>
+          <text class="addr-text">{{item.city || ''}} · {{item.address || ''}}</text>
+        </view>
+
+        <view class="card-tags" wx:if="{{item.topFacilities && item.topFacilities.length}}">
+          <text class="tag-item" wx:for="{{item.topFacilities}}" wx:key="*this">{{item}}</text>
+        </view>
+
+        <view class="card-price-row">
+          <view class="price-left">
+            <text class="price-from">￥</text>
+            <text class="price-num">{{item.minPrice}}</text>
+            <text class="price-unit">/晚起</text>
+          </view>
+          <view class="book-btn">立即预订</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- Loading / End / Error -->
+    <view class="list-footer" wx:if="{{loading}}">
+      <view class="loading-dots">
+        <view class="dot dot1"></view>
+        <view class="dot dot2"></view>
+        <view class="dot dot3"></view>
+      </view>
+      <text>加载中...</text>
+    </view>
+    <view class="list-footer no-more" wx:elif="{{!hasMore && items.length > 0}}">
+      — 已加载全部 {{items.length}} 家酒店 —
+    </view>
+    <view class="list-footer empty" wx:elif="{{!loading && items.length === 0}}">
+      <text class="empty-icon">🏨</text>
+      <text>暂无符合条件的酒店</text>
+    </view>
+    <view class="list-footer error-tip" wx:if="{{error}}" bindtap="loadMore">
+      {{error}} · 点击重试
+    </view>
+  </scroll-view>
+
+  <assistant-float iconSrc="/components/assets/ai.png" />
+>>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
 </view>

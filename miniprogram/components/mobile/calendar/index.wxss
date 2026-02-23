@@ -1,0 +1,95 @@
+.calendar {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.calendar-header .nav {
+  width: 60rpx;
+  height: 60rpx;
+  text-align: center;
+  line-height: 60rpx;
+  font-size: 36rpx;
+  color: #1677ff;
+}
+
+.calendar-header .title {
+  font-weight: 600;
+  font-size: 30rpx;
+}
+
+.weekdays {
+  display: flex;
+  margin-bottom: 12rpx;
+}
+
+.weekday {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.days {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.day {
+  width: calc(100% / 7);
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+}
+
+.day.other {
+  color: #ddd;
+}
+
+.day.disabled {
+  color: #ccc;
+}
+
+.day.normal {
+  color: #333;
+}
+
+.day.start,
+.day.end {
+  background: #1677ff;
+  color: #fff;
+  border-radius: 8rpx;
+}
+
+.day.range {
+  background: rgba(22, 119, 255, 0.15);
+  color: #1677ff;
+}
+
+.quick-options {
+  margin-top: 24rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.quick-btn {
+  padding: 12rpx 24rpx;
+  background: #f3f4f6;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: #1677ff;
+}
+
+.quick-btn:active {
+  opacity: 0.8;
+}
