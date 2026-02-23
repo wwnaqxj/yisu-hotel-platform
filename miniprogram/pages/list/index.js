@@ -317,7 +317,6 @@ Page({
     });
   },
 
->>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
   // Star
   onStarSelect(e) {
     const star = e.currentTarget.dataset.star;
