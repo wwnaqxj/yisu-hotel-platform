@@ -11,7 +11,6 @@ const PRICE_RANGES = [
   { label: '¥500-800', min: 500, max: 800 },
   { label: '¥800-1000', min: 800, max: 1000 },
 ];
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function toYmd(date) {
   const d = date instanceof Date ? date : new Date(date);
@@ -111,6 +110,7 @@ Page({
     selectedFacilities: [],
   },
 
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   onLoad(options) {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -176,24 +176,28 @@ Page({
     this.setData({ loading: true, error: '' });
 
     try {
-      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar } = this.data;
+      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar, selectedFacilities } = this.data;
       const params = { city: query.city, keyword: query.keyword, page, pageSize };
 
       const data = await request({ url: '/api/hotel/list', method: 'GET', data: params });
       const raw = data.items || [];
 
-    let next = raw
-      .filter((h) => {
-        if (selectedStar != null && Number(h.star) !== selectedStar) return false;
-        const p = Number(h.minPrice ?? h.price ?? 0);
-        if (selectedPriceRange && (p < selectedPriceRange.min || p > selectedPriceRange.max)) return false;
-        return true;
-      })
-      .map(enrichItem);
+      let next = raw
+        .filter((h) => {
+          if (selectedStar != null && Number(h.star) !== selectedStar) return false;
+          const p = Number(h.minPrice ?? h.price ?? 0);
+          if (selectedPriceRange && (p < selectedPriceRange.min || p > selectedPriceRange.max)) return false;
+          if (selectedFacilities && selectedFacilities.length) {
+            const fs = Array.isArray(h.facilities) ? h.facilities : [];
+            return selectedFacilities.every((f) => fs.indexOf(f) >= 0);
+          }
+          return true;
+        })
+        .map(enrichItem);
 
-    if (currentSort === 'price_asc') next = next.sort((a, b) => a.minPrice - b.minPrice);
-    else if (currentSort === 'price_desc') next = next.sort((a, b) => b.minPrice - a.minPrice);
-    else if (currentSort === 'score_desc') next = next.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      if (currentSort === 'price_asc') next = next.sort((a, b) => a.minPrice - b.minPrice);
+      else if (currentSort === 'price_desc') next = next.sort((a, b) => b.minPrice - a.minPrice);
+      else if (currentSort === 'score_desc') next = next.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
       this.setData({
         items: this.data.items.concat(next),
@@ -209,6 +213,7 @@ Page({
     }
   },
 
+  // ── Navigation ────────────────────────────────────────────────────────────
   onItemTap(e) {
     const id = e.currentTarget.dataset.id;
     const { checkIn, checkOut } = this.data.query;
@@ -218,6 +223,7 @@ Page({
     wx.navigateTo({ url });
   },
 
+  // ── City / Date ───────────────────────────────────────────────────────────
   onCityChange(e) {
     const city = this.data.cities[e.detail.value];
     this.setData({ 'query.city': city });
@@ -311,6 +317,7 @@ Page({
     });
   },
 
+>>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
   // Star
   onStarSelect(e) {
     const star = e.currentTarget.dataset.star;
@@ -337,3 +344,4 @@ Page({
     this.resetAndLoad();
   },
 });
+
