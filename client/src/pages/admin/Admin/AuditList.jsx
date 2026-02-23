@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Avatar,
@@ -29,6 +30,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
 import {
   Check as CheckIcon,
@@ -40,6 +43,7 @@ import {
   Visibility as OnlineIcon,
   VisibilityOff as OfflineIcon,
   Warning as WarningIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useApi } from '../../../hooks/useApi.js';
 
@@ -200,6 +204,7 @@ function DetailDrawer({ hotel, open, onClose }) {
 
 export default function AuditList() {
   const api = useApi();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('pending');
   const [items, setItems] = useState([]);
@@ -294,9 +299,40 @@ export default function AuditList() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ bgcolor: '#f1f5f9', minHeight: '100vh', p: 3 }}>
+    <>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          bgcolor: '#0f172a',
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            sx={{ color: '#ffffff', letterSpacing: 1 }}
+          >
+            易宿管理中心
+          </Typography>
+          <Tooltip title="个人中心">
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={() => navigate('/admin/profile')}
+            >
+              <PersonIcon />
+            </IconButton>
+          </Tooltip>
+        </Toolbar>
+      </AppBar>
 
-      {/* ── Page header ── */}
+      <Toolbar />
+
+      <Box sx={{ bgcolor: '#f1f5f9', minHeight: '100vh', p: 3 }}>
+
+        {/* ── Page header ── */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3}>
         <Box>
           <Typography variant="h4" fontWeight={800}
@@ -312,7 +348,7 @@ export default function AuditList() {
         </Button>
       </Stack>
 
-      {/* ── Stat cards row ── */}
+        {/* ── Stat cards row ── */}
       <Stack direction="row" spacing={2} mb={3}>
         {TABS.map((t) => (
           <Paper key={t.value}
@@ -333,7 +369,7 @@ export default function AuditList() {
         ))}
       </Stack>
 
-      {/* ── Main table card ── */}
+        {/* ── Main table card ── */}
       <Paper sx={{ borderRadius: 3, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
 
         {/* Tabs */}
@@ -576,7 +612,7 @@ export default function AuditList() {
         />
       </Paper>
 
-      {/* ── Reject Dialog ── */}
+        {/* ── Reject Dialog ── */}
       <Dialog
         open={rejectDlg.open}
         onClose={() => setRejectDlg({ open: false, id: null })}
@@ -619,10 +655,10 @@ export default function AuditList() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Detail Drawer ── */}
+        {/* ── Detail Drawer ── */}
       <DetailDrawer hotel={drawerHotel} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ── Snackbar ── */}
+        {/* ── Snackbar ── */}
       <Snackbar
         open={snack.open}
         autoHideDuration={3000}
@@ -633,6 +669,7 @@ export default function AuditList() {
           {snack.msg}
         </Alert>
       </Snackbar>
-    </Box>
+      </Box>
+    </>
   );
 }
