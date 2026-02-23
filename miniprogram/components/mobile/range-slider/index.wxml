@@ -1,0 +1,31 @@
+<view class="range-slider">
+  <view class="range-labels">
+    <text>￥{{low}}</text>
+    <text>￥{{high}}</text>
+  </view>
+
+  <view
+    class="range-track"
+    catchtouchmove="onMove"
+    catchtouchend="onEnd"
+    catchtouchcancel="onEnd"
+  >
+    <view class="range-track-bg"></view>
+    <view
+      class="range-track-active"
+      style="{{activeStyle}}"
+    ></view>
+
+    <view
+      class="range-thumb left-thumb"
+      style="{{leftThumbStyle}}"
+      bindtouchstart="onLeftStart"
+    ></view>
+    <view
+      class="range-thumb right-thumb"
+      style="{{rightThumbStyle}}"
+      bindtouchstart="onRightStart"
+    ></view>
+  </view>
+</view>
+

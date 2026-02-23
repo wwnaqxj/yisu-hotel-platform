@@ -1,0 +1,8 @@
+<swiper class="banner-swiper" indicator-dots="{{list.length > 1}}" autoplay circular>
+  <block wx:for="{{list}}" wx:key="id">
+    <swiper-item bindtap="onItemTap" data-item="{{item}}">
+      <image class="banner-img" src="{{item.image || item.url}}" mode="aspectFill" />
+      <view class="banner-title" wx:if="{{item.title}}">{{item.title}}</view>
+    </swiper-item>
+  </block>
+</swiper>

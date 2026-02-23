@@ -11,7 +11,7 @@ const uploadRoutes = require('./routes/upload');
 const mediaRoutes = require('./routes/media');
 const geoRoutes = require('./routes/geo');
 const assistantRoutes = require('./routes/assistant');
-const { ensureAdmin, ensureMerchant } = require('./seed');
+const { ensureAdmin, ensureMerchant, ensureHotels } = require('./seed');
 
 const app = express();
 
@@ -41,7 +41,7 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3001);
-Promise.all([ensureAdmin(), ensureMerchant()])
+Promise.all([ensureAdmin(), ensureMerchant(), ensureHotels()])
   .catch((e) => {
     console.error('Seed failed:', e);
   })

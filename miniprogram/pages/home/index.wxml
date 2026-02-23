@@ -1,36 +1,79 @@
 <view class="container">
-  <view class="card" bindtap="onBannerTap">
-    <view style="font-size: 34rpx; font-weight: 600;">易宿精选酒店</view>
-    <view style="margin-top: 10rpx; opacity: .8;">点击进入示例详情</view>
-  </view>
+  <mobile-banner list="{{bannerList}}" />
 
-  <view style="height: 24rpx;"></view>
-
-  <view class="card">
-    <view>城市</view>
-    <input class="input" placeholder="请输入城市" value="{{city}}" bindinput="onCityInput" />
-
-    <view style="height: 16rpx;"></view>
-
-    <view>关键词</view>
-    <input class="input" placeholder="酒店名/地址关键词" value="{{keyword}}" bindinput="onKeywordInput" />
-
-    <view style="height: 16rpx;"></view>
-
-    <view>日期</view>
-    <view style="display:flex; gap: 16rpx; align-items:center; margin-top: 10rpx;">
-      <picker mode="date" value="{{checkIn}}" bindchange="onCheckInChange">
-        <view class="input">{{checkIn || '选择入住'}}</view>
-      </picker>
-      <view style="opacity:.6;">至</view>
-      <picker mode="date" value="{{checkOut}}" bindchange="onCheckOutChange">
-        <view class="input">{{checkOut || '选择离店'}}</view>
-      </picker>
+  <view class="card query-card">
+    <view class="section">
+      <view class="label">城市</view>
+      <view class="city-row">
+        <input
+          class="input city-input"
+          placeholder="请输入城市"
+          value="{{city}}"
+          bindinput="onCityInput"
+        />
+        <view class="relocate-btn" bindtap="onRelocate">
+          <text class="relocate-icon">📍</text>
+          <text class="relocate-text">重新定位</text>
+        </view>
+      </view>
+      <view class="location-tip" wx:if="{{locationStatus === 'fail'}}">{{locationError}}</view>
+      <view class="location-tip success" wx:elif="{{locationStatus === 'success'}}">已定位</view>
     </view>
 
-    <view style="height: 20rpx;"></view>
+    <view class="section">
+      <view class="label">关键词</view>
+      <input
+        class="input"
+        placeholder="酒店名/地址"
+        value="{{keyword}}"
+        bindinput="onKeywordInput"
+      />
+    </view>
+
+    <view class="section">
+      <view class="label">入住 / 离店</view>
+      <mobile-calendar
+        checkIn="{{checkIn}}"
+        checkOut="{{checkOut}}"
+        bindchange="onCalendarChange"
+      />
+    </view>
+
+    <view class="section">
+      <view class="label">酒店星级</view>
+      <checkbox-group bindchange="onStarChange">
+        <view class="star-row">
+          <label wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="star-item">
+            <checkbox value="{{item}}" checked="{{stars.indexOf(item) >= 0}}" />
+            <text>{{item}}星</text>
+          </label>
+        </view>
+      </checkbox-group>
+    </view>
+
+    <view class="section">
+      <view class="label">价格区间（元/晚）</view>
+      <mobile-range-slider
+        min="50"
+        max="1000"
+        step="50"
+        low="{{priceMin || 50}}"
+        high="{{priceMax || 1000}}"
+        bindchange="onPriceRangeChange"
+      />
+    </view>
+
+    <view class="section">
+      <view class="label">标签</view>
+      <mobile-tags
+        items="{{tagItems}}"
+        selected="{{tags}}"
+        bindchange="onTagsChange"
+      />
+    </view>
+
     <view class="btn" bindtap="onSearch">查询</view>
   </view>
 
-  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

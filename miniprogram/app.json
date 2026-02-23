@@ -1,12 +1,7 @@
 {
-  "pages": [
-    "pages/home/index",
-    "pages/list/index",
-    "pages/detail/index",
-    "pages/assistant/index"
-  ],
-  "window": {
-    "navigationBarTitleText": "易宿酒店"
-  },
+  "pages": ["pages/home/index", "pages/list/index", "pages/detail/index", "pages/assistant/index"],
+  "window": { "navigationBarTitleText": "易宿酒店" },
+  "permission": { "scope.userLocation": { "desc": "用于展示当前城市以推荐附近酒店" } },
+  "requiredPrivateInfos": ["getLocation"],
   "sitemapLocation": "sitemap.json"
 }
