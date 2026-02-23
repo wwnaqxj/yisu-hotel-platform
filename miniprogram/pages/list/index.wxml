@@ -81,14 +81,14 @@
   <!-- Price/Star Panel -->
   <view class="filter-panel {{activeFilter==='priceStar' ? 'panel-show' : ''}}">
     <view class="panel-title">价格区间（¥/晚）</view>
-    <view class="chip-row">
-      <view
-        wx:for="{{priceRanges}}" wx:key="label"
-        class="chip {{selectedPriceRange && selectedPriceRange.label===item.label ? 'chip-active' : ''}}"
-        data-index="{{index}}" bindtap="onPriceSelect">
-        {{item.label}}
-      </view>
-    </view>
+    <mobile-range-slider
+      min="50"
+      max="1000"
+      step="50"
+      low="{{selectedPriceRange ? selectedPriceRange.min : 50}}"
+      high="{{selectedPriceRange ? selectedPriceRange.max : 1000}}"
+      bindchange="onFilterPriceRangeChange"
+    />
 
     <view class="panel-title" style="margin-top:30rpx">星级要求</view>
     <view class="chip-row">
@@ -160,9 +160,9 @@
       data-id="{{item.id}}"
       bindtap="onItemTap"
     >
-      <!-- Cover Image -->
+      <!-- Cover Image（无图时占位） -->
       <view class="card-img-wrap">
-        <image class="card-img" src="{{item.images[0]}}" mode="aspectFill" lazy-load></image>
+        <image class="card-img" src="{{item.cardImage || '/components/assets/ai.png'}}" mode="aspectFill" lazy-load></image>
         <view class="star-ribbon">
           <text wx:for="{{item.starArr}}" wx:key="*this" class="star-icon">★</text>
         </view>
@@ -171,10 +171,9 @@
 
       <!-- Info -->
       <view class="card-body">
-        <view class="card-name">{{item.nameZh}}</view>
+        <view class="card-name">{{item.nameZh || item.nameEn || '未命名酒店'}}</view>
 
-        <!-- Score Row -->
-        <view class="card-score-row">
+        <view class="card-score-row" wx:if="{{item.score != null}}">
           <view class="score-pill">{{item.score}}</view>
           <view class="score-desc">
             <text class="score-label">{{item.scoreLabel}}</text>
@@ -182,18 +181,15 @@
           </view>
         </view>
 
-        <!-- Address -->
         <view class="card-addr">
           <text class="addr-icon">📍</text>
-          <text class="addr-text">{{item.city}} · {{item.address}}</text>
+          <text class="addr-text">{{item.city || ''}} · {{item.address || ''}}</text>
         </view>
 
-        <!-- Tags -->
-        <view class="card-tags" wx:if="{{item.topFacilities.length}}">
+        <view class="card-tags" wx:if="{{item.topFacilities && item.topFacilities.length}}">
           <text class="tag-item" wx:for="{{item.topFacilities}}" wx:key="*this">{{item}}</text>
         </view>
 
-        <!-- Price Row -->
         <view class="card-price-row">
           <view class="price-left">
             <text class="price-from">￥</text>
@@ -226,4 +222,5 @@
     </view>
   </scroll-view>
 
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

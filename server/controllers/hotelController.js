@@ -17,7 +17,7 @@ async function list(req, res, next) {
     if (status) where.status = status;
     else where.status = 'approved';
 
-    if (city) where.city = { contains: String(city) }; // Removed 'mode: insensitive' for MySQL compatibility if needed, but Prisma usually handles it.
+    if (city) where.city = { contains: String(city) };
 
     if (keyword) {
       const kw = String(keyword);

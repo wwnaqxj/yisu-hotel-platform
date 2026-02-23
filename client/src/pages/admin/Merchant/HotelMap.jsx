@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, Stack, TextField, Typography } from '@mui/material';
 import { load } from '@amap/amap-jsapi-loader';
 
@@ -6,30 +6,74 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
   const mapElRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const onChangeRef = useRef(onChange);
 
   const [keyword, setKeyword] = useState(defaultKeyword);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
     setKeyword(defaultKeyword || '');
   }, [defaultKeyword]);
 
-  const jsKey = useMemo(() => {
-    return import.meta.env.VITE_AMAP_JS_KEY;
-  }, []);
+  const jsKey = import.meta.env.VITE_AMAP_JS_KEY;
+  const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE;
+  const BEIJING_CENTER = [116.397428, 39.90923];
 
-  const securityJsCode = useMemo(() => {
-    return import.meta.env.VITE_AMAP_SECURITY_JS_CODE;
-  }, []);
+  function isValidLngLat(lngVal, latVal) {
+    const a = Number(lngVal);
+    const b = Number(latVal);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+    // (0,0) 是海洋，视为无效，避免地图显示在“尼莫点”附近
+    if (a === 0 && b === 0) return false;
+    return true;
+  }
 
   useEffect(() => {
+    if (!jsKey) return;
     let canceled = false;
 
+    /** 等容器有宽高再创建地图，避免 flex 首帧未算完导致 0 尺寸灰屏 */
+    function waitForSize(el, maxMs = 3000) {
+      return new Promise((resolve) => {
+        if (!el) {
+          resolve(false);
+          return;
+        }
+        const check = () => {
+          if (canceled) {
+            resolve(false);
+            return true;
+          }
+          const w = el.offsetWidth;
+          const h = el.offsetHeight;
+          if (w > 0 && h > 0) {
+            resolve(true);
+            return true;
+          }
+          return false;
+        };
+        if (check()) return;
+        const start = Date.now();
+        const id = setInterval(() => {
+          if (check()) {
+            clearInterval(id);
+            return;
+          }
+          if (Date.now() - start >= maxMs) {
+            clearInterval(id);
+            resolve(true);
+          }
+        }, 50);
+      });
+    }
+
     async function init() {
-      if (!jsKey) {
-        return;
-      }
-      if (!mapElRef.current) return;
+      const el = mapElRef.current;
+      if (!el) return;
 
       if (securityJsCode) {
         window._AMapSecurityConfig = {
@@ -42,13 +86,17 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
         version: '2.0',
         plugins: ['AMap.ToolBar'],
       });
-      if (canceled) return;
+      if (canceled || !mapElRef.current) return;
 
-      const center = Number.isFinite(Number(lng)) && Number.isFinite(Number(lat)) ? [Number(lng), Number(lat)] : [116.397428, 39.90923];
+      await waitForSize(mapElRef.current);
+      if (canceled || !mapElRef.current) return;
+
+      const center = isValidLngLat(lng, lat) ? [Number(lng), Number(lat)] : BEIJING_CENTER;
 
       const map = new AMap.Map(mapElRef.current, {
         zoom: 14,
         center,
+        viewMode: '2D',
       });
       map.addControl(new AMap.ToolBar());
       mapRef.current = map;
@@ -63,41 +111,64 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
       marker.on('dragend', (ev) => {
         const p = ev?.lnglat;
         if (!p) return;
-        onChange?.({ lng: p.lng, lat: p.lat });
+        onChangeRef.current?.({ lng: p.lng, lat: p.lat });
       });
 
       map.on('click', (ev) => {
         const p = ev?.lnglat;
         if (!p) return;
         marker.setPosition([p.lng, p.lat]);
-        onChange?.({ lng: p.lng, lat: p.lat });
+        onChangeRef.current?.({ lng: p.lng, lat: p.lat });
       });
+
+      const handleResize = () => {
+        if (!mapRef.current) return;
+        try {
+          mapRef.current.resize();
+        } catch {
+          // ignore
+        }
+      };
+
+      map.on('complete', handleResize);
+      window.addEventListener('resize', handleResize);
+      setTimeout(handleResize, 0);
+      setTimeout(handleResize, 150);
+      setTimeout(handleResize, 500);
+
+      return () => {
+        map.off('complete', handleResize);
+        window.removeEventListener('resize', handleResize);
+      };
     }
 
-    init();
+    let cleanup;
+    init().then((fn) => {
+      cleanup = fn;
+    });
 
     return () => {
       canceled = true;
+      if (cleanup) cleanup();
       try {
         if (mapRef.current) {
           mapRef.current.destroy();
         }
-      } catch (e) {
+      } catch {
         // ignore
       } finally {
         mapRef.current = null;
         markerRef.current = null;
       }
     };
-  }, [jsKey]);
+  }, [jsKey, securityJsCode]);
 
   useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
     if (!map || !marker) return;
 
-    const hasPoint = Number.isFinite(Number(lng)) && Number.isFinite(Number(lat));
-    if (!hasPoint) return;
+    if (!isValidLngLat(lng, lat)) return;
 
     const p = [Number(lng), Number(lat)];
     marker.setPosition(p);
@@ -118,7 +189,7 @@ export default function HotelMap({ api, lng, lat, onChange, defaultKeyword = '',
       const nextLng = res?.data?.lng;
       const nextLat = res?.data?.lat;
       if (Number.isFinite(Number(nextLng)) && Number.isFinite(Number(nextLat))) {
-        onChange?.({ lng: Number(nextLng), lat: Number(nextLat) });
+        onChangeRef.current?.({ lng: Number(nextLng), lat: Number(nextLat) });
       }
     } finally {
       setBusy(false);

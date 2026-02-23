@@ -15,12 +15,19 @@ import {
   CircularProgress,
   Container,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
   Grid,
   IconButton,
   InputAdornment,
+  InputLabel,
   List,
   Menu,
   MenuItem,
+  OutlinedInput,
   Paper,
   Snackbar,
   Stack,
@@ -41,15 +48,18 @@ import {
   Star as StarIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
   VideoCameraBack as VideoIcon,
   RoomService as RoomIcon, // 房型图标
   Store as StoreIcon,
-  AttachMoney as MoneyIcon
+  AttachMoney as MoneyIcon,
+  AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 
 import { useApi } from '../../../hooks/useApi';
 import { useAuth } from '../../../hooks/useAuth.js';
-import { logout as logoutAction } from '../../../store/userSlice.js';
+import { logout as logoutAction, setUser } from '../../../store/userSlice.js';
 
 import pcaa from 'china-area-data';
 
@@ -126,6 +136,22 @@ export default function HotelEdit() {
   const { user } = useAuth();
   const theme = useTheme();
 
+  const parseBreakfastValue = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return { has: 'none', count: '' };
+    if (/不含|无早|无早餐|无早饭|不含早|不含早餐/i.test(s)) return { has: 'none', count: '' };
+    const m = s.match(/(\d+)\s*份/);
+    if (m) return { has: 'has', count: m[1] };
+    return { has: 'has', count: '' };
+  };
+
+  const formatBreakfastValue = (has, count) => {
+    if (has !== 'has') return '无早';
+    const c = String(count || '').trim();
+    if (!c) return '含早';
+    return `含早 ${c}份`;
+  };
+
   const municipalityNames = useMemo(() => new Set(['北京市', '天津市', '上海市', '重庆市']), []);
 
   const provinceOptions = useMemo(() => {
@@ -176,9 +202,10 @@ export default function HotelEdit() {
     openTime: toDateInputValue('2020-01-01'),
     description: '',
     facilitiesText: '', // 文本域输入的设施，逗号分隔
+    facilities: [],
     images: [],
     videos: [],
-    roomTypes: [{ name: '标准间', price: 299 }],
+    roomTypes: [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
   });
 
   const provinceName = useMemo(() => {
@@ -223,6 +250,22 @@ export default function HotelEdit() {
 
   // 用户菜单锚点
   const [menuAnchor, setMenuAnchor] = useState(null);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileUsername, setProfileUsername] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    setProfileUsername(user?.username || '');
+  }, [profileOpen, user?.username]);
 
   // 计算当前选中的酒店对象（用于显示状态等）
   const selectedHotel = useMemo(() => {
@@ -283,9 +326,10 @@ export default function HotelEdit() {
       openTime: toDateInputValue('2020-01-01'),
       description: '',
       facilitiesText: '',
+      facilities: [],
       images: [],
       videos: [],
-      roomTypes: [{ name: '标准间', price: 299 }],
+      roomTypes: [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
     });
   }
 
@@ -308,6 +352,8 @@ export default function HotelEdit() {
       } else if (h.facilities) {
         facilitiesStr = String(h.facilities);
       }
+
+      const facilitiesArr = Array.isArray(h.facilities) ? h.facilities.filter(Boolean).map((x) => String(x).trim()).filter(Boolean) : normalizeFacilities(facilitiesStr);
 
       // 数据处理：媒体可能为 null 或单字符串或数组
       const ensureArray = (item) => {
@@ -341,13 +387,21 @@ export default function HotelEdit() {
         openTime: toDateInputValue(h.openTime),
         description: h.description || '',
         facilitiesText: facilitiesStr,
-
+        facilities: facilitiesArr,
         images: ensureArray(h.images),
         videos: ensureArray(h.videos),
         roomTypes:
           rooms.length > 0
-            ? rooms.map((r) => ({ name: r.name || '', price: Number(r.price || 0) }))
-            : [{ name: '标准间', price: 299 }],
+            ? rooms.map((r) => ({
+                name: r.name || '',
+                price: Number(r.price || 0),
+                bedType: r.bedType || '',
+                area: r.area != null ? String(r.area) : '',
+                breakfast: r.breakfast || '无早',
+                totalRooms: r.totalRooms != null && Number.isFinite(Number(r.totalRooms)) ? Number(r.totalRooms) : 0,
+                availableRooms: r.availableRooms != null && Number.isFinite(Number(r.availableRooms)) ? Number(r.availableRooms) : 0,
+              }))
+            : [{ name: '标准间', price: 299, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }],
       });
     } catch (e) {
       notify('error', e.message || '加载详情失败');
@@ -364,7 +418,7 @@ export default function HotelEdit() {
   function setRoomField(index, key, value) {
     setValues((v) => {
       const next = v.roomTypes.slice();
-      const row = { ...(next[index] || { name: '', price: 0 }) };
+      const row = { ...(next[index] || { name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }) };
       row[key] = value;
       next[index] = row;
       return { ...v, roomTypes: next };
@@ -372,14 +426,20 @@ export default function HotelEdit() {
   }
 
   function addRoom() {
-    setValues((v) => ({ ...v, roomTypes: [...v.roomTypes, { name: '', price: 0 }] }));
+    setValues((v) => ({
+      ...v,
+      roomTypes: [...v.roomTypes, { name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }]
+    }));
   }
 
   function removeRoom(index) {
     setValues((v) => {
       const next = v.roomTypes.slice();
       next.splice(index, 1);
-      return { ...v, roomTypes: next.length ? next : [{ name: '', price: 0 }] };
+      return {
+        ...v,
+        roomTypes: next.length ? next : [{ name: '', price: 0, bedType: '', area: '', breakfast: '无早', totalRooms: 0, availableRooms: 0 }]
+      };
     });
   }
 
@@ -533,6 +593,13 @@ export default function HotelEdit() {
     return raw.split(/[\n\r,，、;；]+/).map((s) => s.trim()).filter(Boolean);
   }
 
+  function normalizeFacilitiesList(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((x) => String(x || '').trim())
+      .filter(Boolean);
+  }
+
   const cityForMap = addressEditMode ? (isMunicipality ? provinceName : cityName) : (values.city || '');
   const addressForGeo = addressEditMode
     ? `${provinceName || ''}${isMunicipality ? '' : (cityName || '')}${districtName || ''}${values.streetAddress || ''}`
@@ -582,11 +649,19 @@ export default function HotelEdit() {
 
         openTime: values.openTime,
         description: values.description,
-        facilities: normalizeFacilities(values.facilitiesText),
+        facilities: Array.isArray(values.facilities) && values.facilities.length ? normalizeFacilitiesList(values.facilities) : normalizeFacilities(values.facilitiesText),
         images: values.images,
 
         videos: values.videos,
-        roomTypes: values.roomTypes.map((r) => ({ name: r.name, price: Number(r.price) })),
+        roomTypes: values.roomTypes.map((r) => ({
+          name: r.name,
+          price: Number(r.price),
+          bedType: String(r.bedType || '').trim() || undefined,
+          area: r.area != null && String(r.area).trim() !== '' ? Number(r.area) : undefined,
+          breakfast: String(r.breakfast || '').trim() || undefined,
+          totalRooms: r.totalRooms != null && String(r.totalRooms).trim() !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
+          availableRooms: r.availableRooms != null && String(r.availableRooms).trim() !== '' && Number.isFinite(Number(r.availableRooms)) ? Math.max(0, Number(r.availableRooms)) : 0,
+        })),
       };
 
       if (selectedId) {
@@ -623,8 +698,81 @@ export default function HotelEdit() {
     return <Chip label={label} color={color} size="small" variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 'bold' }} />;
   };
 
+  async function handleSaveAll() {
+    if (pwdLoading || profileSaving) return;
+
+    const nextUsername = String(profileUsername || '').trim();
+    const currentUsername = String(user?.username || '').trim();
+    const usernameChanged = nextUsername && nextUsername !== currentUsername;
+
+    const oldPwd = String(oldPassword || '');
+    const newPwd = String(newPassword || '');
+    const confirmPwd = String(confirmPassword || '');
+    const hasAnyPwdInput = Boolean(oldPwd.trim() || newPwd.trim() || confirmPwd.trim());
+
+    if (!usernameChanged && !hasAnyPwdInput) {
+      return notify('info', '暂无修改');
+    }
+
+    if (usernameChanged) {
+      setProfileSaving(true);
+      try {
+        const res = await api.put('/api/auth/profile', { username: nextUsername });
+        dispatch(setUser(res?.data?.user || { ...(user || {}), username: nextUsername }));
+      } catch (e) {
+        notify('error', e?.message || '账号保存失败');
+        return;
+      } finally {
+        setProfileSaving(false);
+      }
+    }
+
+    if (hasAnyPwdInput) {
+      if (!oldPwd.trim()) return notify('warning', '请输入旧密码');
+      if (!newPwd.trim()) return notify('warning', '请输入新密码');
+      if (newPwd.length < 6) return notify('warning', '新密码至少 6 位');
+      if (newPwd !== confirmPwd) return notify('warning', '两次输入的新密码不一致');
+
+      setPwdLoading(true);
+      try {
+        await api.put('/api/auth/password', { oldPassword: oldPwd, newPassword: newPwd });
+        notify('success', '密码已修改，请重新登录');
+        setProfileOpen(false);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        dispatch(logoutAction());
+        navigate('/admin/login', { replace: true });
+        return;
+      } catch (e) {
+        const rawMsg =
+          e?.response?.data?.message ||
+          e?.response?.data?.error ||
+          e?.response?.data?.msg ||
+          e?.message ||
+          '修改失败';
+        const msg = String(rawMsg || '修改失败');
+        if (/old\s*password|旧密码|原密码|password\s*incorrect|incorrect\s*password|密码.*不(正|对)确/i.test(msg)) {
+          notify('error', '原来的密码输入不正确');
+        } else {
+          notify('error', msg || '修改失败');
+        }
+        return;
+      } finally {
+        setPwdLoading(false);
+      }
+    }
+
+    notify('success', '已保存');
+  }
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'radial-gradient(1200px 500px at 10% -10%, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0) 60%), radial-gradient(900px 450px at 90% -10%, rgba(99,102,241,0.16) 0%, rgba(99,102,241,0) 55%), linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #f8fafc 100%)',
+      }}
+    >
       <AppBar
         position="fixed"
         elevation={0}
@@ -635,22 +783,57 @@ export default function HotelEdit() {
           zIndex: 1201
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar variant="rounded" sx={{ bgcolor: theme.palette.primary.main, fontWeight: 'bold', width: 36, height: 36 }}>
-              <StoreIcon fontSize="small" />
+        <Toolbar
+          sx={{
+            minHeight: 68,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'center',
+            columnGap: 2,
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            <Avatar
+              variant="rounded"
+              sx={{
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.95) 0%, rgba(99,102,241,0.95) 55%, rgba(14,165,233,0.95) 100%)',
+                border: '1px solid rgba(255,255,255,0.16)',
+                width: 36,
+                height: 36,
+                boxShadow: '0 10px 20px rgba(2, 6, 23, 0.25)',
+              }}
+            >
+              <StoreIcon fontSize="small" sx={{ color: '#fff' }} />
             </Avatar>
-            <Box>
-              <Typography variant="subtitle1" fontWeight={700} color="white" lineHeight={1.2}>
-                易宿商户中心
-              </Typography>
-              <Typography variant="caption" color="rgba(255,255,255,0.5)">
-                {currentTime}
-              </Typography>
-            </Box>
+            <Chip
+              icon={<AccessTimeIcon sx={{ color: 'rgba(255,255,255,0.75) !important' }} />}
+              label={currentTime}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.85)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                fontWeight: 600,
+                '& .MuiChip-label': { px: 0.75 },
+              }}
+            />
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ textAlign: 'center', px: 2 }}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: 1,
+                color: '#fff',
+                lineHeight: 1.1,
+              }}
+            >
+              易宿商户中心
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ justifySelf: 'end' }}>
             <Chip
               avatar={<Avatar sx={{ bgcolor: theme.palette.primary.dark, color: '#fff' }}>{(user?.username || 'A')[0]}</Avatar>}
               label={user?.username || 'Merchant'}
@@ -671,7 +854,7 @@ export default function HotelEdit() {
               <MenuItem
                 onClick={() => {
                   setMenuAnchor(null);
-                  navigate('/admin/profile');
+                  setProfileOpen(true);
                 }}
               >
                 <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> 个人中心
@@ -692,9 +875,106 @@ export default function HotelEdit() {
         </Toolbar>
       </AppBar>
 
+      <Dialog
+        open={profileOpen}
+        onClose={() => {
+          if (pwdLoading || profileSaving) return;
+          setProfileOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 900 }}>个人中心</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="账号"
+              value={profileUsername}
+              onChange={(e) => setProfileUsername(e.target.value)}
+              fullWidth
+              helperText="可修改账号/密码，完成后点击保存修改"
+            />
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="old-password">旧密码</InputLabel>
+              <OutlinedInput
+                id="old-password"
+                type={showOldPassword ? 'text' : 'password'}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                label="旧密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowOldPassword((v) => !v)} edge="end" size="small">
+                      {showOldPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="new-password">新密码</InputLabel>
+              <OutlinedInput
+                id="new-password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                onPaste={(e) => e.preventDefault()}
+                onDrop={(e) => e.preventDefault()}
+                onDragOver={(e) => e.preventDefault()}
+                label="新密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowNewPassword((v) => !v)} edge="end" size="small">
+                      {showNewPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+
+            <FormControl fullWidth variant="outlined">
+              <InputLabel htmlFor="confirm-password">确认新密码</InputLabel>
+              <OutlinedInput
+                id="confirm-password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onPaste={(e) => e.preventDefault()}
+                onDrop={(e) => e.preventDefault()}
+                onDragOver={(e) => e.preventDefault()}
+                label="确认新密码"
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowConfirmPassword((v) => !v)} edge="end" size="small">
+                      {showConfirmPassword ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              if (pwdLoading || profileSaving) return;
+              setProfileOpen(false);
+            }}
+            color="inherit"
+          >
+            取消
+          </Button>
+          <Button variant="contained" onClick={handleSaveAll} disabled={pwdLoading || profileSaving}>
+            {pwdLoading || profileSaving ? '保存中...' : '保存修改'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Toolbar />
 
-      <Container maxWidth={false} sx={{ py: 3, px: 3 }}>
+      <Container maxWidth={false} sx={{ py: 3.5, px: { xs: 1.5, sm: 3 } }}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
           <Box
             sx={{
@@ -712,15 +992,28 @@ export default function HotelEdit() {
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                borderRadius: 3,
-                border: 'none',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                borderRadius: 3.5,
+                border: '1px solid rgba(15, 23, 42, 0.06)',
+                bgcolor: 'rgba(255,255,255,0.78)',
+                backdropFilter: 'blur(12px)',
+                boxShadow: '0 10px 28px rgba(15,23,42,0.08)',
               }}
             >
-              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#fff' }}>
+              <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(15, 23, 42, 0.08)', bgcolor: 'rgba(255,255,255,0.6)' }}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <HotelIcon color="primary" />
-                  <Typography variant="subtitle1" fontWeight={700}>我的酒店</Typography>
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 30,
+                      height: 30,
+                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                      color: 'primary.main',
+                      border: '1px solid rgba(59, 130, 246, 0.18)',
+                    }}
+                  >
+                    <HotelIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="subtitle1" fontWeight={800}>我的酒店</Typography>
                 </Stack>
                 <Tooltip title="刷新列表">
                   <IconButton onClick={refreshList} disabled={listLoading} size="small">
@@ -729,7 +1022,7 @@ export default function HotelEdit() {
                 </Tooltip>
               </Box>
 
-              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: '#f1f5f9', p: 1.5 }}>
+              <Box sx={{ flex: 1, overflowY: 'auto', bgcolor: 'rgba(241,245,249,0.55)', p: 1.5 }}>
                 {myHotels.length === 0 && !listLoading ? (
                   <Stack alignItems="center" justifyContent="center" sx={{ height: '100%', opacity: 0.5 }}>
                     <HotelIcon sx={{ fontSize: 48, mb: 1, color: 'text.disabled' }} />
@@ -750,14 +1043,28 @@ export default function HotelEdit() {
                             transition: 'all 0.2s',
                             border: '1px solid',
                             borderColor: active ? 'primary.main' : 'transparent',
-                            bgcolor: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                            borderRadius: 2,
-                            '&:hover': { transform: 'translateY(-2px)', bgcolor: '#fff' }
+                            bgcolor: active ? '#fff' : 'rgba(255,255,255,0.78)',
+                            borderRadius: 2.5,
+                            boxShadow: active ? '0 10px 22px rgba(15,23,42,0.10)' : '0 1px 0 rgba(15,23,42,0.05)',
+                            '&:hover': { transform: 'translateY(-2px)', bgcolor: '#fff', boxShadow: '0 10px 22px rgba(15,23,42,0.10)' }
                           }}
                         >
                           <Stack direction="row" spacing={2}>
-                            <Avatar variant="rounded" sx={{ bgcolor: active ? 'primary.main' : 'grey.300', width: 40, height: 40 }}>
-                              {(item.nameZh || 'H')[0]}
+                            <Avatar
+                              variant="rounded"
+                              sx={{
+                                width: 44,
+                                height: 44,
+                                fontWeight: 900,
+                                letterSpacing: 1,
+                                color: '#fff',
+                                background: active
+                                  ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 55%, #0ea5e9 100%)'
+                                  : 'linear-gradient(135deg, rgba(148,163,184,0.95) 0%, rgba(100,116,139,0.95) 100%)',
+                                boxShadow: active ? '0 14px 26px rgba(37, 99, 235, 0.25)' : '0 10px 18px rgba(15,23,42,0.10)',
+                              }}
+                            >
+                              {String(item.nameZh || 'H').slice(0, 1)}
                             </Avatar>
                             <Box sx={{ minWidth: 0, flex: 1 }}>
                               <Typography variant="subtitle2" noWrap fontWeight={600} color={active ? 'primary.main' : 'text.primary'}>
@@ -814,8 +1121,17 @@ export default function HotelEdit() {
                 </Stack>
               </Stack>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
                     <Box sx={{ width: 4, height: 26, bgcolor: 'primary.main', borderRadius: 4 }} />
                     <Typography variant="h6" fontWeight={700}>基本信息</Typography>
@@ -932,7 +1248,66 @@ export default function HotelEdit() {
                       <TextField label="酒店简介" value={values.description} onChange={(ev) => setField('description', ev.target.value)} fullWidth multiline rows={3} />
                     </Grid>
                     <Grid item xs={12}>
-                      <TextField label="设施服务 (逗号分隔)" value={values.facilitiesText} onChange={(ev) => setField('facilitiesText', ev.target.value)} fullWidth />
+                      <Autocomplete
+                        multiple
+                        freeSolo
+                        options={[]}
+                        sx={{
+                          '& .MuiAutocomplete-inputRoot': {
+                            flexWrap: 'nowrap',
+                          },
+                          '& .MuiAutocomplete-input': {
+                            minWidth: 220,
+                            flexGrow: 1,
+                          },
+                        }}
+                        value={Array.isArray(values.facilities) ? values.facilities : []}
+                        onChange={(e2, next) => {
+                          const cleaned = normalizeFacilitiesList(next);
+                          setValues((v) => ({ ...v, facilities: cleaned, facilitiesText: cleaned.join('，') }));
+                        }}
+                        renderTags={(tagValue, getTagProps) => {
+                          if (!tagValue || tagValue.length === 0) return null;
+                          return (
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                alignItems: 'center',
+                                gap: 1,
+                                overflowX: 'auto',
+                                maxWidth: '100%',
+                                pr: 0.5,
+                                '&::-webkit-scrollbar': { height: 6 },
+                                '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.18)', borderRadius: 999 },
+                              }}
+                            >
+                              {tagValue.map((option, index) => (
+                                <Chip
+                                  variant="outlined"
+                                  label={option}
+                                  {...getTagProps({ index })}
+                                  key={option + index}
+                                  sx={{ flex: '0 0 auto' }}
+                                />
+                              ))}
+                            </Box>
+                          );
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="设施服务"
+                            placeholder="输入后回车"
+                            fullWidth
+                            
+                            inputProps={{
+                              ...params.inputProps,
+                              style: { minWidth: 220 },
+                            }}
+                          />
+                        )}
+                      />
                     </Grid>
 
                     <Grid item xs={12}>
@@ -982,8 +1357,17 @@ export default function HotelEdit() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
                     <Box sx={{ width: 4, height: 26, bgcolor: 'secondary.main', borderRadius: 4 }} />
                     <Typography variant="h6" fontWeight={700}>媒体资料</Typography>
@@ -1023,8 +1407,17 @@ export default function HotelEdit() {
                 </CardContent>
               </Card>
 
-              <Card sx={{ mb: 3, borderRadius: 3, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                <CardContent sx={{ p: 4 }}>
+              <Card
+                sx={{
+                  mb: 3,
+                  borderRadius: 3.5,
+                  border: '1px solid rgba(15, 23, 42, 0.06)',
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 16px 40px rgba(15,23,42,0.08)',
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2.5, sm: 4 } }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                       <Box sx={{ width: 4, height: 26, bgcolor: 'success.main', borderRadius: 4 }} />
@@ -1051,6 +1444,84 @@ export default function HotelEdit() {
                               fullWidth
                               InputProps={{ disableUnderline: true, style: { fontWeight: 600, fontSize: '0.95rem' } }}
                             />
+                            <Grid container spacing={1.5} sx={{ mt: 1 }}>
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="床型"
+                                  placeholder="如：1.8m大床/1.2m单人床"
+                                  value={r.bedType || ''}
+                                  onChange={(ev) => setRoomField(idx, 'bedType', ev.target.value)}
+                                  fullWidth
+                                />
+                              </Grid>
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="面积(㎡)"
+                                  placeholder="如：35"
+                                  type="number"
+                                  value={r.area ?? ''}
+                                  onChange={(ev) => setRoomField(idx, 'area', ev.target.value)}
+                                  fullWidth
+                                />
+                              </Grid>
+                              {(() => {
+                                const b = parseBreakfastValue(r.breakfast);
+                                return (
+                                  <>
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        select
+                                        size="small"
+                                        label="早餐"
+                                        value={b.has}
+                                        onChange={(ev) => {
+                                          const has = ev.target.value;
+                                          setRoomField(idx, 'breakfast', formatBreakfastValue(has, b.count));
+                                        }}
+                                        fullWidth
+                                      >
+                                        <MenuItem value="none">无早餐</MenuItem>
+                                        <MenuItem value="has">有早餐</MenuItem>
+                                      </TextField>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                      <TextField
+                                        select
+                                        size="small"
+                                        label="早餐份数"
+                                        value={b.has === 'has' ? (b.count || '') : ''}
+                                        disabled={b.has !== 'has'}
+                                        onChange={(ev) => {
+                                          const count = ev.target.value;
+                                          setRoomField(idx, 'breakfast', formatBreakfastValue('has', count));
+                                        }}
+                                        fullWidth
+                                      >
+                                        <MenuItem value="">默认</MenuItem>
+                                        <MenuItem value="1">1份</MenuItem>
+                                        <MenuItem value="2">2份</MenuItem>
+                                        <MenuItem value="3">3份</MenuItem>
+                                        <MenuItem value="4">4份</MenuItem>
+                                      </TextField>
+                                    </Grid>
+                                  </>
+                                );
+                              })()}
+                              <Grid item xs={12} sm={6}>
+                                <TextField
+                                  size="small"
+                                  label="总房间数"
+                                  type="number"
+                                  value={r.totalRooms ?? 0}
+                                  onChange={(ev) => setRoomField(idx, 'totalRooms', ev.target.value)}
+                                  fullWidth
+                                  InputProps={{ inputProps: { min: 0 } }}
+                                />
+                              </Grid>
+                              
+                            </Grid>
                             <TextField
                               variant="standard"
                               placeholder="0"

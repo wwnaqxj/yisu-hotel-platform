@@ -1,16 +1,5 @@
 <view class="page">
-  <!-- Top Nav -->
-  <view class="nav" style="padding-top: {{navTop}}px; height: {{navTotal}}px;">
-    <view class="nav-inner">
-      <view class="nav-left" bindtap="onBack">
-        <view class="nav-back">返回</view>
-      </view>
-      <view class="nav-title">{{hotel.nameZh || hotel.nameEn || '酒店详情'}}</view>
-      <view class="nav-right"></view>
-    </view>
-  </view>
-
-  <view class="content" style="padding-top: {{navSafe}}px;">
+  <view class="content">
     <!-- Banner -->
     <view class="banner">
       <swiper class="banner-swiper" autoplay="false" circular="true" indicator-dots="true" indicator-color="rgba(255,255,255,0.5)" indicator-active-color="#ffffff">
@@ -45,7 +34,30 @@
 
       <view class="kv">
         <view class="kv-label">地址</view>
-        <view class="kv-value">{{hotel.address || '-'}}</view>
+        <view class="kv-value">
+          <view class="addr-text">{{hotel.address || '-'}}</view>
+          <view class="near-row" wx:if="{{lng && lat}}">
+            <view class="near-left">
+              <view wx:if="{{nearbySubwayTop.length > 0}}" class="near-item">
+                最近地铁：{{nearbySubwayTop[0].name}} · {{nearbySubwayTop[0].distanceText}}
+              </view>
+              <view wx:elif="{{poisLoading}}" class="near-item">附近信息加载中...</view>
+              <view wx:elif="{{poisError}}" class="near-item">{{poisError}}</view>
+              <view wx:else class="near-item">暂无周边信息</view>
+            </view>
+            <view class="near-btn" bindtap="onOpenPoiPanel">周边</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="kv" wx:if="{{lng && lat}}">
+        <view class="kv-label">位置</view>
+        <view class="kv-value">
+          <view class="loc-row">
+            <view class="loc-text">{{lng}}, {{lat}}</view>
+            <view class="loc-btn" bindtap="onOpenLocation">导航</view>
+          </view>
+        </view>
       </view>
 
       <view class="kv">
@@ -56,6 +68,69 @@
           </view>
           <view class="muted" wx:else>暂无设施信息</view>
         </view>
+      </view>
+    </view>
+
+    <view class="poi-mask" wx:if="{{poiPanelOpen}}" bindtap="onClosePoiPanel"></view>
+    <view class="poi-panel" wx:if="{{poiPanelOpen}}">
+      <view class="poi-panel-head">
+        <view class="poi-panel-title">周边信息</view>
+        <view class="poi-panel-close" bindtap="onClosePoiPanel">关闭</view>
+      </view>
+
+      <view class="poi-panel-body">
+        <view class="poi-head">
+          <view class="section-title">详情</view>
+          <view class="poi-toggle" bindtap="onTogglePois">{{poisExpanded ? '收起' : '展开更多'}}</view>
+        </view>
+        <view class="section-sub" wx:if="{{poisLoading}}">加载中...</view>
+        <view class="section-sub" wx:elif="{{poisError}}">{{poisError}}</view>
+
+        <map
+          class="hotel-map"
+          longitude="{{lng}}"
+          latitude="{{lat}}"
+          markers="{{markers}}"
+          scale="15"
+          show-location="true"
+        />
+
+        <view class="poi-group">
+          <view class="poi-title">附近地铁</view>
+          <view wx:if="{{nearbySubwayView.length === 0}}" class="poi-empty">暂无</view>
+          <view wx:for="{{nearbySubwayView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+            <view class="poi-left">
+              <view class="poi-name">{{item.name}}</view>
+              <view class="poi-addr">{{item.address}}</view>
+            </view>
+            <view class="poi-dist">{{item.distanceText}}</view>
+          </view>
+        </view>
+
+        <view class="poi-group">
+          <view class="poi-title">附近公交</view>
+          <view wx:if="{{nearbyBusView.length === 0}}" class="poi-empty">暂无</view>
+          <view wx:for="{{nearbyBusView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+            <view class="poi-left">
+              <view class="poi-name">{{item.name}}</view>
+              <view class="poi-addr">{{item.address}}</view>
+            </view>
+            <view class="poi-dist">{{item.distanceText}}</view>
+          </view>
+        </view>
+
+        <view class="poi-group">
+          <view class="poi-title">附近餐饮</view>
+          <view wx:if="{{nearbyFoodView.length === 0}}" class="poi-empty">暂无</view>
+          <view wx:for="{{nearbyFoodView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+            <view class="poi-left">
+              <view class="poi-name">{{item.name}}</view>
+              <view class="poi-addr">{{item.address}}</view>
+            </view>
+            <view class="poi-dist">{{item.distanceText}}</view>
+          </view>
+        </view>
+        <view class="poi-panel-space"></view>
       </view>
     </view>
 
@@ -111,7 +186,14 @@
       <view class="room" wx:for="{{rooms}}" wx:key="id" bindtap="onSelectRoom" data-index="{{index}}">
         <view class="room-left">
           <view class="room-name">{{item.name}}</view>
-          <view class="room-sub">可订 · 含税/服务费规则以实际为准</view>
+          <view class="room-sub">
+            <text wx:if="{{item.bedType}}">{{item.bedType}}</text>
+            <text wx:if="{{item.bedType && (item.area || item.breakfast)}}"> · </text>
+            <text wx:if="{{item.area}}">{{item.area}}㎡</text>
+            <text wx:if="{{item.area && item.breakfast}}"> · </text>
+            <text wx:if="{{item.breakfast}}">{{item.breakfast}}</text>
+            <text wx:if="{{!item.bedType && !item.area && !item.breakfast}}">可订 · 含税/服务费规则以实际为准</text>
+          </view>
         </view>
         <view class="room-right">
           <view class="price">
@@ -119,6 +201,7 @@
             <text class="p">{{item.price}}</text>
           </view>
           <view class="per">每晚</view>
+          <view class="room-book">立即预订</view>
         </view>
       </view>
 
@@ -128,4 +211,6 @@
     <view wx:if="{{error}}" class="error">{{error}}</view>
     <view class="footer-space"></view>
   </view>
+
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

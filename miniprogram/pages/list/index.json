@@ -1,8 +1,12 @@
 {
   "navigationBarTitleText": "酒店列表",
-  "navigationBarBackgroundColor": "#1a6dff",
+  "navigationBarBackgroundColor": "#1677ff",
   "navigationBarTextStyle": "white",
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
-  "backgroundColor": "#f2f4f8"
+  "backgroundColor": "#f7f7f7",
+  "usingComponents": {
+    "assistant-float": "/components/assistant-float/index",
+    "mobile-range-slider": "/components/mobile/range-slider/index"
+  }
 }

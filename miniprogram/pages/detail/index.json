@@ -1,4 +1,9 @@
 {
   "navigationBarTitleText": "酒店详情",
-  "navigationStyle": "custom"
+  "navigationBarBackgroundColor": "#1a6dff",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f2f4f8",
+  "usingComponents": {
+    "assistant-float": "/components/assistant-float/index"
+  }
 }

@@ -10,8 +10,8 @@ const merchantRoutes = require('./routes/merchant');
 const uploadRoutes = require('./routes/upload');
 const mediaRoutes = require('./routes/media');
 const geoRoutes = require('./routes/geo');
-const { ensureAdmin, ensureMerchant } = require('./seed');
-const { getPrisma } = require('./prismaClient');
+const assistantRoutes = require('./routes/assistant');
+const { ensureAdmin, ensureMerchant, ensureHotels } = require('./seed');
 
 const app = express();
 
@@ -30,6 +30,7 @@ app.use('/api/merchant', merchantRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/geo', geoRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
@@ -40,8 +41,7 @@ app.use((err, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3001);
-const prisma = getPrisma();
-Promise.all([ensureAdmin(prisma), ensureMerchant(prisma)])
+Promise.all([ensureAdmin(), ensureMerchant(), ensureHotels()])
   .catch((e) => {
     console.error('Seed failed:', e);
   })

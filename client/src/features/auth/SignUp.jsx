@@ -197,7 +197,7 @@ export default function SignUp(props) {
               />
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel id="signup-role-label">角色</InputLabel>
+              <FormLabel id="signup-role-label">角色</FormLabel>
               <Select
                 labelId="signup-role-label"
                 id="role"

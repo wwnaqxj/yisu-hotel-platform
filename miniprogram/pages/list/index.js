@@ -1,5 +1,16 @@
+/**
+ * 酒店列表页：与首页查询条件联动（URL 参数 + 全局 Store）
+ * 接口仅支持 city/keyword/page/pageSize，星级与价格在前端筛选、排序
+ */
 const { request } = require('../../utils/request');
 
+const FIXED_CITIES = ['北京', '上海', '广州', '深圳', '成都', '杭州'];
+const PRICE_RANGES = [
+  { label: '¥50-200', min: 50, max: 200 },
+  { label: '¥200-500', min: 200, max: 500 },
+  { label: '¥500-800', min: 500, max: 800 },
+  { label: '¥800-1000', min: 800, max: 1000 },
+];
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function toYmd(date) {
   const d = date instanceof Date ? date : new Date(date);
@@ -29,16 +40,33 @@ function scoreLabel(score) {
   return '总体不错';
 }
 
-// enrich raw hotel item from API
+function decodeOpt(options, key) {
+  const v = options[key];
+  return v ? decodeURIComponent(v) : '';
+}
+
+function priceRangeFromMinMax(priceMin, priceMax) {
+  if (priceMin == null || priceMin === '' || priceMax == null || priceMax === '') return null;
+  const min = Number(priceMin);
+  const max = Number(priceMax);
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  return PRICE_RANGES.find((r) => r.min === min && r.max === max) || { label: `¥${min}-${max}`, min, max };
+}
+
 function enrichItem(h) {
   const starArr = Array.from({ length: h.star || 0 }, (_, i) => i);
   const topFacilities = Array.isArray(h.facilities) ? h.facilities.slice(0, 3) : [];
+  const price = Number(h.minPrice ?? h.price ?? 0);
+  const score = h.score != null ? Number(h.score) : null;
   return {
     ...h,
     starArr,
-    topFacilities,
-    scoreLabel: scoreLabel(h.score || 0),
-    reviewCount: Math.floor(100 + (h.id || 1) * 37) % 900 + 100, // pseudo count
+    topFacilities: topFacilities.length ? topFacilities : [],
+    cardImage: (h.images && h.images[0]) || '',
+    minPrice: price,
+    score,
+    scoreLabel: score != null ? scoreLabel(score) : '',
+    reviewCount: Math.floor(100 + (h.id || 1) * 37) % 900 + 100,
   };
 }
 
@@ -72,15 +100,9 @@ Page({
     currentSort: 'default',
     currentSortLabel: '智能推荐',
 
-    // Filters
-    cities: ['北京', '上海', '广州', '深圳', '成都', '杭州'],
-    priceRanges: [
-      { label: '¥200以下', min: 0, max: 200 },
-      { label: '¥200-500', min: 200, max: 500 },
-      { label: '¥500-1000', min: 500, max: 1000 },
-      { label: '¥1000-2000', min: 1000, max: 2000 },
-      { label: '¥2000以上', min: 2000, max: 99999 },
-    ],
+    // Filters（与首页查询条件一致，可从 URL 恢复）
+    cities: FIXED_CITIES,
+    priceRanges: PRICE_RANGES,
     selectedPriceRange: null,
     selectedStar: null,
 
@@ -94,10 +116,30 @@ Page({
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const checkIn = options.checkIn || toYmd(today);
-    const checkOut = options.checkOut || toYmd(tomorrow);
-    const city = options.city ? decodeURIComponent(options.city) : '北京';
-    const keyword = options.keyword ? decodeURIComponent(options.keyword) : '';
+    const checkIn = decodeOpt(options, 'checkIn') || toYmd(today);
+    const checkOut = decodeOpt(options, 'checkOut') || toYmd(tomorrow);
+    const city = decodeOpt(options, 'city') || '北京';
+    const keyword = decodeOpt(options, 'keyword') || '';
+
+    const starsStr = decodeOpt(options, 'stars');
+    const tagsStr = decodeOpt(options, 'tags');
+    const stars = starsStr ? starsStr.split(',').map((s) => parseInt(s, 10)).filter((n) => !isNaN(n)) : [];
+    const tags = tagsStr ? tagsStr.split(',') : [];
+    const priceMin = options.priceMin !== undefined && options.priceMin !== '' ? Number(options.priceMin) : '';
+    const priceMax = options.priceMax !== undefined && options.priceMax !== '' ? Number(options.priceMax) : '';
+
+    const selectedStar = stars.length ? stars[0] : null;
+    const selectedPriceRange = priceRangeFromMinMax(priceMin, priceMax);
+    const facilitySet = this.data.facilities;
+    const selectedFacilities = tags.filter((t) => facilitySet.indexOf(t) >= 0);
+
+    const cities = city && FIXED_CITIES.indexOf(city) < 0 ? [city, ...FIXED_CITIES] : FIXED_CITIES;
+
+    const store = getApp().getStore();
+    store.setQuery({
+      city, keyword, checkIn, checkOut,
+      stars, priceMin: priceMin === '' ? '' : priceMin, priceMax: priceMax === '' ? '' : priceMax, tags,
+    });
 
     this.setData({
       query: {
@@ -107,6 +149,10 @@ Page({
         checkOutShort: toShort(checkOut),
       },
       nights: calcNights(checkIn, checkOut),
+      cities,
+      selectedStar,
+      selectedPriceRange,
+      selectedFacilities,
     });
     this.resetAndLoad();
   },
@@ -131,33 +177,33 @@ Page({
 
     try {
       const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar, selectedFacilities } = this.data;
-
-      const params = {
-        city: query.city,
-        keyword: query.keyword,
-        page,
-        pageSize,
-        sort: currentSort,
-      };
-      if (selectedPriceRange) {
-        params.minPrice = selectedPriceRange.min;
-        params.maxPrice = selectedPriceRange.max;
-      }
-      if (selectedStar) params.star = selectedStar;
-      if (selectedFacilities && selectedFacilities.length) {
-        params.facilities = selectedFacilities.join(',');
-      }
+      const params = { city: query.city, keyword: query.keyword, page, pageSize };
 
       const data = await request({ url: '/api/hotel/list', method: 'GET', data: params });
+      const raw = data.items || [];
 
-      const next = (data.items || []).map(enrichItem);
-      const hasMore = next.length >= pageSize;
+      let next = raw
+        .filter((h) => {
+          if (selectedStar != null && Number(h.star) !== selectedStar) return false;
+          const p = Number(h.minPrice ?? h.price ?? 0);
+          if (selectedPriceRange && (p < selectedPriceRange.min || p > selectedPriceRange.max)) return false;
+          if (selectedFacilities && selectedFacilities.length) {
+            const fs = Array.isArray(h.facilities) ? h.facilities : [];
+            return selectedFacilities.every((f) => fs.indexOf(f) >= 0);
+          }
+          return true;
+        })
+        .map(enrichItem);
+
+      if (currentSort === 'price_asc') next = next.sort((a, b) => a.minPrice - b.minPrice);
+      else if (currentSort === 'price_desc') next = next.sort((a, b) => b.minPrice - a.minPrice);
+      else if (currentSort === 'score_desc') next = next.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
       this.setData({
         items: this.data.items.concat(next),
-        total: data.total || 0,
+        total: (this.data.total || 0) + next.length,
         page: page + 1,
-        hasMore,
+        hasMore: raw.length >= pageSize,
       });
     } catch (e) {
       console.error('[list] loadMore error:', e);
@@ -169,13 +215,19 @@ Page({
 
   // ── Navigation ────────────────────────────────────────────────────────────
   onItemTap(e) {
-    wx.navigateTo({ url: `/pages/detail/index?id=${e.currentTarget.dataset.id}` });
+    const id = e.currentTarget.dataset.id;
+    const { checkIn, checkOut } = this.data.query;
+    let url = `/pages/detail/index?id=${id}`;
+    if (checkIn) url += `&checkIn=${encodeURIComponent(checkIn)}`;
+    if (checkOut) url += `&checkOut=${encodeURIComponent(checkOut)}`;
+    wx.navigateTo({ url });
   },
 
   // ── City / Date ───────────────────────────────────────────────────────────
   onCityChange(e) {
     const city = this.data.cities[e.detail.value];
     this.setData({ 'query.city': city });
+    getApp().getStore().setQuery({ city });
     this.resetAndLoad();
   },
 
@@ -255,6 +307,17 @@ Page({
     this.setData({ selectedPriceRange: same ? null : range });
   },
 
+  // 双滑块价格筛选
+  onFilterPriceRangeChange(e) {
+    const { low, high } = e.detail || {};
+    const min = Number(low || 0);
+    const max = Number(high || 0);
+    this.setData({
+      selectedPriceRange: { label: `¥${min}-${max}`, min, max },
+    });
+  },
+
+>>>>>>> 19ed3f848632e3e714d7b091c1c792208143813f
   // Star
   onStarSelect(e) {
     const star = e.currentTarget.dataset.star;
@@ -281,3 +344,4 @@ Page({
     this.resetAndLoad();
   },
 });
+
