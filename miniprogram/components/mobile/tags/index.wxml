@@ -1,0 +1,9 @@
+<view class="tags">
+  <view
+    wx:for="{{items}}"
+    wx:key="*this"
+    class="tag {{selected.indexOf(item) >= 0 ? 'active' : ''}}"
+    data-tag="{{item}}"
+    bindtap="onTagTap"
+  >{{item}}</view>
+</view>

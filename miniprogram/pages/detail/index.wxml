@@ -212,5 +212,5 @@
     <view class="footer-space"></view>
   </view>
 
-  <assistant-float iconSrc="/components/assistant-float/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

@@ -1,0 +1,50 @@
+.range-slider {
+  padding: 8rpx 0 4rpx;
+}
+
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+}
+
+.range-track {
+  position: relative;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: transparent;
+}
+
+.range-track-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: #e5e7eb;
+  border-radius: 4rpx;
+}
+
+.range-track-active {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #1677ff;
+  border-radius: 4rpx;
+}
+
+.range-thumb {
+  position: absolute;
+  top: 50%;
+  width: 32rpx;
+  height: 32rpx;
+  margin-left: -16rpx;
+  border-radius: 50%;
+  background: #fff;
+  border: 2rpx solid #1677ff;
+  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.15);
+  transform: translateY(-50%);
+}
+
