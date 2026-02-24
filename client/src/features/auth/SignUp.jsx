@@ -17,7 +17,6 @@ import MuiCard from '@mui/material/Card';
 import { styled } from '@mui/material/styles';
 import { useDispatch } from 'react-redux';
 import AppTheme from './shared-theme/AppTheme.jsx';
-import ColorModeSelect from './shared-theme/ColorModeSelect.jsx';
 import { YisuLogoIcon, WeChatIcon } from './components/CustomIcons.jsx';
 import { setToken, setUser } from '../../store/userSlice.js';
 import { useApi } from '../../hooks/useApi.js';
@@ -149,7 +148,6 @@ export default function SignUp(props) {
   return (
     <AppTheme {...props}>
       <CssBaseline enableColorScheme />
-      <ColorModeSelect sx={{ position: 'fixed', top: '1rem', right: '1rem' }} />
       <SignUpContainer direction="column" justifyContent="space-between">
         <Card variant="outlined">
           <YisuLogoIcon sx={{ width: 120, height: 120, display: 'block', mx: 'auto' }} />
@@ -229,7 +227,7 @@ export default function SignUp(props) {
               onClick={() => alert('Sign up with Wechat')}
               startIcon={<WeChatIcon />}
             >
-              通过微信注册
+              进入微信小程序
             </Button>
             <Typography sx={{ textAlign: 'center' }}>
               已有账号？{' '}

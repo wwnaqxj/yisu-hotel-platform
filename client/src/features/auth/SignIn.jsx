@@ -17,7 +17,6 @@ import { styled } from "@mui/material/styles";
 import { useDispatch } from "react-redux";
 import ForgotPassword from "./components/ForgotPassword.jsx";
 import AppTheme from "./shared-theme/AppTheme";
-import ColorModeSelect from "./shared-theme/ColorModeSelect";
 import { YisuLogoIcon, WeChatIcon } from "./components/CustomIcons";
 import { setToken, setUser } from "../../store/userSlice.js";
 import { useApi } from "../../hooks/useApi.js";
@@ -155,9 +154,6 @@ export default function SignIn(props) {
     <AppTheme {...props}>
       <CssBaseline enableColorScheme />
       <SignInContainer direction="column" justifyContent="space-between">
-        <ColorModeSelect
-          sx={{ position: "fixed", top: "1rem", right: "1rem" }}
-        />
         <Card variant="outlined">
           <YisuLogoIcon sx={{ width: 120, height: 120, display: 'block', mx: 'auto' }} />
           <Typography
@@ -212,10 +208,6 @@ export default function SignIn(props) {
                 color={passwordError ? "error" : "primary"}
               />
             </FormControl>
-            {/* <FormControlLabel
-              control={<Checkbox value="remember" color="primary" />} 
-              label="记住我"  
-            /> */}
             <ForgotPassword open={open} handleClose={handleClose} />
             <Button
               type="submit"
@@ -226,25 +218,15 @@ export default function SignIn(props) {
             >
               {submitting ? "登录中…" : "Sign in"}
             </Button>
-            {/* <Link
-              component="button"
-              type="button"
-              onClick={handleClickOpen}
-              variant="body2"
-              sx={{ alignSelf: "center" }}
-            >
-              忘记密码?
-            </Link> */}
           </Box>
           <Divider>or</Divider>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Button
               fullWidth
               variant="outlined"
-              onClick={() => alert("Sign in with Wechat")}
               startIcon={<WeChatIcon />}
             >
-              通过微信登录
+              进入微信小程序
             </Button>
 
             <Typography sx={{ textAlign: "center" }}>
