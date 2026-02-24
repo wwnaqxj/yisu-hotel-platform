@@ -5,6 +5,8 @@
 }
 
 .tag {
+  display: flex;
+  align-items: center;
   padding: 12rpx 24rpx;
   background: #f3f4f6;
   border-radius: 12rpx;
@@ -19,4 +21,12 @@
 
 .tag:active {
   opacity: 0.9;
+}
+
+.tag-checkbox {
+  margin-right: 8rpx;
+}
+
+.tag-text {
+  line-height: 1.4;
 }

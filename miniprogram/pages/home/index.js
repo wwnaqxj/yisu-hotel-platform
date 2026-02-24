@@ -5,7 +5,8 @@
  * 创新点3：快捷日期选项（components/mobile/calendar）- 今天入住、明天入住、本周周末
  */
 const { getCurrentCity } = require('../../utils/location');
-const { getBannerList, getTagsByCity } = require('../../mock/hotels');
+const { getTagsByCity } = require('../../mock/hotels');
+const { request } = require('../../utils/request');
 
 Page({
   data: {
@@ -24,8 +25,7 @@ Page({
   },
 
   onLoad() {
-    this.bannerList = getBannerList();
-    this.setData({ bannerList: this.bannerList });
+    this.loadBanner();
     this.tagItems = getTagsByCity('');
     this.setData({ tagItems: this.tagItems });
 
@@ -43,6 +43,33 @@ Page({
     });
     this.syncTagItemsByCity(this.data.city);
     this.tryLocation();
+  },
+
+  async loadBanner() {
+    try {
+      const res = await request({
+        url: '/api/hotel/list',
+        method: 'GET',
+        data: {
+          page: 1,
+          pageSize: 5
+        }
+      });
+      const items = Array.isArray(res.items) ? res.items : [];
+      const bannerList = items
+        .filter((h) => h && h.id != null)
+        .slice(0, 5)
+        .map((h) => ({
+          id: h.id,
+          title: h.nameZh || h.nameEn || '',
+          image: Array.isArray(h.images) && h.images.length ? h.images[0] : ''
+        }))
+        .filter((item) => item.image && item.title);
+      this.setData({ bannerList });
+    } catch (e) {
+      console.error('[home] loadBanner error:', e);
+      this.setData({ bannerList: [] });
+    }
   },
 
   onRelocate() {
@@ -97,9 +124,11 @@ Page({
   },
 
   onStarChange(e) {
-    const stars = e.detail.value.map((v) => parseInt(v, 10));
+    const stars = e.detail.value || [];
     this.setData({ stars });
-    getApp().getStore().setQuery({ stars });
+    // 全局查询条件中仍然用数字数组，方便列表页解析
+    const starNums = stars.map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n));
+    getApp().getStore().setQuery({ stars: starNums });
   },
 
   // 双滑块价格区间变更
