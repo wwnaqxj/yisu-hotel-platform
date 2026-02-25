@@ -28,7 +28,7 @@
     </view>
 
     <scroll-view class="af-msgs" scroll-y="true" scroll-with-animation="true" scroll-top="{{scrollTop}}">
-      <block wx:for="{{messages}}" wx:key="id">
+      <block wx:for="{{messages || []}}" wx:key="id">
         <view class="af-row {{item.role === 'user' ? 'right' : 'left'}}">
           <view class="af-bubble {{item.role}}">{{item.content}}</view>
         </view>
@@ -36,9 +36,9 @@
       <view style="height: 16rpx;"></view>
     </scroll-view>
 
-    <view class="af-quick" wx:if="{{quickQuestions.length > 0}}">
+    <view class="af-quick" wx:if="{{quickQuestions && quickQuestions.length > 0}}">
       <scroll-view scroll-x="true" class="af-quick-scroll">
-        <view class="af-q" wx:for="{{quickQuestions}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
+        <view class="af-q" wx:for="{{quickQuestions || []}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
       </scroll-view>
     </view>
 

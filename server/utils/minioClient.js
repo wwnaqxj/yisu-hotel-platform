@@ -8,6 +8,14 @@ function requiredEnv(name) {
   return v;
 }
 
+function safeDecodeURIComponent(s) {
+  try {
+    return decodeURIComponent(s);
+  } catch (e) {
+    return s;
+  }
+}
+
 function getMinioClient() {
   const endPointRaw = process.env.MINIO_ENDPOINT || 'localhost';
   const endPoint = String(endPointRaw).replace(/^https?:\/\//, '');
@@ -70,8 +78,59 @@ async function putObjectFromBuffer({
   };
 }
 
+async function removeObject({ bucket, objectName }) {
+  if (!bucket || !objectName) return;
+  const client = getMinioClient();
+  try {
+    await client.removeObject(bucket, objectName);
+  } catch (e) {
+    if (e && (e.code === 'NoSuchKey' || e.code === 'NotFound')) return;
+    throw e;
+  }
+}
+
+function parseObjectFromMediaUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return null;
+
+  const apiIdx = raw.indexOf('/api/media/');
+  if (apiIdx >= 0) {
+    const tail = raw.slice(apiIdx + '/api/media/'.length);
+    const parts = tail.split('/').filter(Boolean);
+    if (parts.length < 2) return null;
+    const bucket = safeDecodeURIComponent(parts[0]);
+    const objectName = parts
+      .slice(1)
+      .map((seg) => safeDecodeURIComponent(seg))
+      .join('/');
+    if (!bucket || !objectName) return null;
+    return { bucket, objectName };
+  }
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      const pathParts = u.pathname.split('/').filter(Boolean);
+      if (pathParts.length < 2) return null;
+      const bucket = safeDecodeURIComponent(pathParts[0]);
+      const objectName = pathParts
+        .slice(1)
+        .map((seg) => safeDecodeURIComponent(seg))
+        .join('/');
+      if (!bucket || !objectName) return null;
+      return { bucket, objectName };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
   getMinioClient,
   putObjectFromBuffer,
   sanitizeFileName,
+  removeObject,
+  parseObjectFromMediaUrl,
 };

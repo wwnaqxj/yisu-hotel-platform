@@ -70,8 +70,12 @@ async function uploadSingle(req, res, next) {
       contentType: file.mimetype,
     });
 
+    // Always return a proxy URL so clients never depend on MinIO's internal/public host
+    // (e.g. localhost:9001 is not reachable from WeChat DevTools or production users).
+    const proxyUrl = `/api/media/${encodeURIComponent(bucket)}/${objectName}`;
+
     res.json({
-      url: result.url,
+      url: proxyUrl,
       bucket: result.bucket,
       objectName: result.objectName,
       mimeType: file.mimetype,

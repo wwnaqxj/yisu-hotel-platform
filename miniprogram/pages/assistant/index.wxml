@@ -4,7 +4,7 @@
   </view>
 
   <scroll-view class="msgs" scroll-y="true" scroll-with-animation="true" scroll-top="{{scrollTop}}">
-    <block wx:for="{{messages}}" wx:key="id">
+    <block wx:for="{{messages || []}}" wx:key="id">
       <view class="row {{item.role === 'user' ? 'right' : 'left'}}">
         <view class="bubble {{item.role}}">{{item.content}}</view>
       </view>
@@ -12,9 +12,9 @@
     <view style="height: 16rpx;"></view>
   </scroll-view>
 
-  <view class="quick" wx:if="{{quickQuestions.length > 0}}">
+  <view class="quick" wx:if="{{quickQuestions && quickQuestions.length > 0}}">
     <scroll-view scroll-x="true" class="quick-scroll">
-      <view class="q" wx:for="{{quickQuestions}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
+      <view class="q" wx:for="{{quickQuestions || []}}" wx:key="q" bindtap="onQuickTap" data-q="{{item}}">{{item}}</view>
     </scroll-view>
   </view>
 

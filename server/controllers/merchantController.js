@@ -1,19 +1,31 @@
 const { httpError } = require('../utils/errors');
 const { getPrisma } = require('../prismaClient');
+const { removeObject, parseObjectFromMediaUrl } = require('../utils/minioClient');
 
 function normalizeRoomItems(roomItems) {
   if (!Array.isArray(roomItems)) return [];
   return roomItems
     .filter((r) => r && (r.name || r.price != null))
-    .map((r, idx) => ({
-      name: r.name || `Room ${idx + 1}`,
-      price: Number(r.price || 0),
-      bedType: r.bedType != null && String(r.bedType).trim() ? String(r.bedType).trim() : undefined,
-      area: r.area != null && r.area !== '' && Number.isFinite(Number(r.area)) ? Number(r.area) : undefined,
-      breakfast: r.breakfast != null && String(r.breakfast).trim() ? String(r.breakfast).trim() : undefined,
-      totalRooms: r.totalRooms != null && r.totalRooms !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
-      availableRooms: r.availableRooms != null && r.availableRooms !== '' && Number.isFinite(Number(r.availableRooms)) ? Math.max(0, Number(r.availableRooms)) : 0,
-    }));
+    .map((r, idx) => {
+      const totalRooms =
+        r.totalRooms != null && r.totalRooms !== '' && Number.isFinite(Number(r.totalRooms))
+          ? Math.max(0, Number(r.totalRooms))
+          : 0;
+
+      // Merchant editing rule: keep remaining rooms equal to total rooms.
+      // (Project currently does not implement real booking/stock deduction.)
+      const availableRooms = totalRooms;
+
+      return {
+        name: r.name || `Room ${idx + 1}`,
+        price: Number(r.price || 0),
+        bedType: r.bedType != null && String(r.bedType).trim() ? String(r.bedType).trim() : undefined,
+        area: r.area != null && r.area !== '' && Number.isFinite(Number(r.area)) ? Number(r.area) : undefined,
+        breakfast: r.breakfast != null && String(r.breakfast).trim() ? String(r.breakfast).trim() : undefined,
+        totalRooms,
+        availableRooms,
+      };
+    });
 }
 
 function normalizeMediaList(v) {
@@ -21,7 +33,7 @@ function normalizeMediaList(v) {
 
   if (typeof v === 'string') {
     const s = v.trim();
-    if (!s) return undefined;
+    if (!s) return [];
     if (s.startsWith('[') || s.startsWith('{')) {
       try {
         return normalizeMediaList(JSON.parse(s));
@@ -36,7 +48,7 @@ function normalizeMediaList(v) {
     const arr = v
       .map((x) => (typeof x === 'string' ? x.trim() : x))
       .filter((x) => typeof x === 'string' && x);
-    return arr.length ? arr : undefined;
+    return arr;
   }
 
   return undefined;
@@ -118,9 +130,36 @@ function updateHotel(req, res, next) {
 
     prisma.hotel
       .findUnique({ where: { id } })
-      .then((hotel) => {
+      .then(async (hotel) => {
         if (!hotel) throw httpError(404, 'hotel not found');
         if (hotel.ownerId !== ownerId) throw httpError(403, 'forbidden');
+
+        // Delete removed media from MinIO when merchant updates hotel.
+        // Compare old vs new lists.
+        const oldImages = Array.isArray(hotel.images) ? hotel.images.filter((x) => typeof x === 'string' && x) : [];
+        const oldVideos = Array.isArray(hotel.videos) ? hotel.videos.filter((x) => typeof x === 'string' && x) : [];
+        const nextImages = Array.isArray(imagesNorm) ? imagesNorm : [];
+        const nextVideos = Array.isArray(videosNorm) ? videosNorm : [];
+
+        const removed = oldImages
+          .concat(oldVideos)
+          .filter((u) => !nextImages.includes(u) && !nextVideos.includes(u));
+
+        if (removed.length) {
+          const toDelete = removed
+            .map((u) => parseObjectFromMediaUrl(u))
+            .filter(Boolean);
+          // Best-effort delete: do not fail the whole update if a single object is gone.
+          await Promise.all(
+            toDelete.map(async (x) => {
+              try {
+                await removeObject(x);
+              } catch (e) {
+                console.warn('[merchant.updateHotel] removeObject failed:', x, e?.message || e);
+              }
+            })
+          );
+        }
 
         const rooms = normalizeRoomItems(patch.roomTypes);
 

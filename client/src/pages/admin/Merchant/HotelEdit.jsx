@@ -666,7 +666,7 @@ export default function HotelEdit() {
           area: r.area != null && String(r.area).trim() !== '' ? Number(r.area) : undefined,
           breakfast: String(r.breakfast || '').trim() || undefined,
           totalRooms: r.totalRooms != null && String(r.totalRooms).trim() !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
-          availableRooms: r.availableRooms != null && String(r.availableRooms).trim() !== '' && Number.isFinite(Number(r.availableRooms)) ? Math.max(0, Number(r.availableRooms)) : 0,
+          availableRooms: r.totalRooms != null && String(r.totalRooms).trim() !== '' && Number.isFinite(Number(r.totalRooms)) ? Math.max(0, Number(r.totalRooms)) : 0,
         })),
       };
 

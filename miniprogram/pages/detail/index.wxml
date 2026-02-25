@@ -3,8 +3,8 @@
     <!-- Banner -->
     <view class="banner">
       <swiper class="banner-swiper" autoplay="false" circular="true" indicator-dots="true" indicator-color="rgba(255,255,255,0.5)" indicator-active-color="#ffffff">
-        <block wx:if="{{bannerMedias.length > 0}}">
-          <swiper-item wx:for="{{bannerMedias}}" wx:key="url">
+        <block wx:if="{{bannerMedias && bannerMedias.length > 0}}">
+          <swiper-item wx:for="{{bannerMedias || []}}" wx:key="url">
             <block wx:if="{{item.type === 'video'}}">
               <video class="banner-video" src="{{item.url}}" objectFit="cover" controls="true" muted="{{true}}" show-mute-btn="true" show-fullscreen-btn="true" show-center-play-btn="true" autoplay="false" loop="false" enable-play-gesture="true" vslide-gesture="true" vslide-gesture-in-fullscreen="true" bindtap="onPreviewMedia" data-index="{{index}}" />
             </block>
@@ -63,8 +63,8 @@
       <view class="kv">
         <view class="kv-label">设施</view>
         <view class="kv-value">
-          <view class="tags" wx:if="{{facilities.length > 0}}">
-            <view class="tag" wx:for="{{facilities}}" wx:key="*this">{{item}}</view>
+          <view class="tags" wx:if="{{facilities && facilities.length > 0}}">
+            <view class="tag" wx:for="{{facilities || []}}" wx:key="*this">{{item}}</view>
           </view>
           <view class="muted" wx:else>暂无设施信息</view>
         </view>
@@ -98,7 +98,7 @@
         <view class="poi-group">
           <view class="poi-title">附近地铁</view>
           <view wx:if="{{nearbySubwayView.length === 0}}" class="poi-empty">暂无</view>
-          <view wx:for="{{nearbySubwayView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+          <view wx:for="{{nearbySubwayView || []}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
             <view class="poi-left">
               <view class="poi-name">{{item.name}}</view>
               <view class="poi-addr">{{item.address}}</view>
@@ -110,7 +110,7 @@
         <view class="poi-group">
           <view class="poi-title">附近公交</view>
           <view wx:if="{{nearbyBusView.length === 0}}" class="poi-empty">暂无</view>
-          <view wx:for="{{nearbyBusView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+          <view wx:for="{{nearbyBusView || []}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
             <view class="poi-left">
               <view class="poi-name">{{item.name}}</view>
               <view class="poi-addr">{{item.address}}</view>
@@ -122,7 +122,7 @@
         <view class="poi-group">
           <view class="poi-title">附近餐饮</view>
           <view wx:if="{{nearbyFoodView.length === 0}}" class="poi-empty">暂无</view>
-          <view wx:for="{{nearbyFoodView}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
+          <view wx:for="{{nearbyFoodView || []}}" wx:key="id" class="poi-item" bindtap="onOpenPoiLocation" data-lng="{{item.lng}}" data-lat="{{item.lat}}" data-name="{{item.name}}" data-address="{{item.address}}">
             <view class="poi-left">
               <view class="poi-name">{{item.name}}</view>
               <view class="poi-addr">{{item.address}}</view>
@@ -181,7 +181,7 @@
       <view class="section-title">房型价格</view>
       <view class="section-sub">价格从低到高（按商户录入）</view>
 
-      <view class="room" wx:for="{{rooms}}" wx:key="id" bindtap="onSelectRoom" data-index="{{index}}">
+      <view class="room" wx:for="{{rooms || []}}" wx:key="id" bindtap="onSelectRoom" data-index="{{index}}">
         <view class="room-left">
           <view class="room-name">{{item.name}}</view>
           <view class="room-sub">
@@ -203,7 +203,7 @@
         </view>
       </view>
 
-      <view wx:if="{{rooms.length === 0}}" class="empty">暂无房型</view>
+      <view wx:if="{{!rooms || rooms.length === 0}}" class="empty">暂无房型</view>
     </view>
 
     <view wx:if="{{error}}" class="error">{{error}}</view>
