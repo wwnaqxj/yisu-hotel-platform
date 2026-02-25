@@ -105,6 +105,57 @@ const SAMPLE_HOTELS = [
       { name: '标准双床房', price: 238 },
     ],
   },
+  {
+    nameZh: '易宿·成都太古里店',
+    nameEn: 'Yisu Chengdu Taikoo Li',
+    city: '成都',
+    address: '锦江区红星路三段1号',
+    star: 4,
+    openTime: '2021-09',
+    description: '临近太古里与春熙路商圈，适合休闲与商务出行。',
+    facilities: ['免费WiFi', '含早餐', '停车场', '近地铁', '24小时前台'],
+    images: ['https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80'],
+    lat: 30.65,
+    lng: 104.08,
+    rooms: [
+      { name: '舒适大床房', price: 328 },
+      { name: '观景双床房', price: 388 },
+    ],
+  },
+  {
+    nameZh: '易宿·杭州西湖店',
+    nameEn: 'Yisu Hangzhou West Lake',
+    city: '杭州',
+    address: '西湖区龙井路88号',
+    star: 5,
+    openTime: '2020-04',
+    description: '靠近西湖风景区，部分房型可远眺湖景，适合度假休闲。',
+    facilities: ['免费WiFi', '含早餐', '停车场', '游泳池', '健身房', '24小时前台'],
+    images: ['https://images.unsplash.com/photo-1501117716987-c8e1ecb2108a?w=800&q=80'],
+    lat: 30.24,
+    lng: 120.13,
+    rooms: [
+      { name: '园景大床房', price: 568 },
+      { name: '湖景豪华房', price: 768 },
+    ],
+  },
+  {
+    nameZh: '易宿·重庆解放碑店',
+    nameEn: 'Yisu Chongqing Jiefangbei',
+    city: '重庆',
+    address: '渝中区解放碑步行街88号',
+    star: 4,
+    openTime: '2019-12',
+    description: '位于解放碑商圈中心，周边餐饮购物丰富，交通便捷。',
+    facilities: ['免费WiFi', '含早餐', '近地铁', '24小时前台'],
+    images: ['https://images.unsplash.com/photo-1542317854-ff88f85f5a62?w=800&q=80'],
+    lat: 29.56,
+    lng: 106.57,
+    rooms: [
+      { name: '城市大床房', price: 298 },
+      { name: '江景双床房', price: 368 },
+    ],
+  },
 ];
 
 // ─── Seed Admin / Merchant ───────────────────────────────────────────────────
@@ -178,5 +229,3 @@ module.exports = {
   ensureMerchant,
   ensureHotels,
 };
-
-

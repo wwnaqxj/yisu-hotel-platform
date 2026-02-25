@@ -112,8 +112,9 @@ async function list(req, res, next) {
       const { rooms, ...rest } = h;
       return {
         ...normalizeMediaFields(req, { ...rest }),
-        price: typeof currentMinPrice === 'number' ? currentMinPrice : undefined,
-        minPrice: typeof currentMinPrice === 'number' ? currentMinPrice : undefined,
+        // For list cards, always return a usable minPrice (fallback to cheapest room)
+        price: currentMinPrice ?? 0,
+        minPrice: currentMinPrice ?? 0,
       };
     });
 
