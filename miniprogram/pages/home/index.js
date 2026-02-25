@@ -8,6 +8,19 @@ const { getCurrentCity } = require('../../utils/location');
 const { getTagsByCity } = require('../../mock/hotels');
 const { request } = require('../../utils/request');
 
+function toAbsMediaUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+
+  const app = getApp();
+  const baseURLRaw = app?.globalData?.baseURL || 'https://yisuhotel.qxj123.xyz';
+  const baseURL = String(baseURLRaw).replace(/^http:\/\//, 'https://').replace(/\/$/, '');
+
+  if (/^https?:\/\//.test(raw)) return raw.replace(/^http:\/\//, 'https://');
+  if (raw.startsWith('/api/media/')) return `${baseURL}${raw}`;
+  return raw;
+}
+
 Page({
   data: {
     city: '',
@@ -63,7 +76,7 @@ Page({
         .map((h) => ({
           id: h.id,
           title: h.nameZh || h.nameEn || '',
-          image: Array.isArray(h.images) && h.images.length ? h.images[0] : ''
+          image: toAbsMediaUrl(Array.isArray(h.images) && h.images.length ? h.images[0] : '')
         }))
         .filter((item) => item.image && item.title);
       this.setData({ bannerList });

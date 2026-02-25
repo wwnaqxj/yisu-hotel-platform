@@ -133,6 +133,16 @@ export default function HotelEdit() {
   const { user } = useAuth();
   const theme = useTheme();
 
+  const sanitizeDecimalInput = (v) => {
+    const s = String(v ?? '');
+    const cleaned = s.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length <= 1) return cleaned;
+    return `${parts[0]}.${parts.slice(1).join('')}`;
+  };
+
+  const sanitizeIntInput = (v) => String(v ?? '').replace(/\D/g, '');
+
   const parseBreakfastValue = (raw) => {
     const s = String(raw || '').trim();
     if (!s) return { has: 'none', count: '' };
@@ -305,7 +315,6 @@ export default function HotelEdit() {
   // --- 业务逻辑：重置表单（新建模式） ---
   function handleReset() {
     setSelectedId(null);
-    const api = useApi(); // Ensure api is available if used, though it's defined in outer scope. useApi() hook call is at top level.
     setAddressEditMode(true);
     setRejectReason('');
     setValues({
@@ -1447,9 +1456,11 @@ export default function HotelEdit() {
                                   size="small"
                                   label="床型"
                                   placeholder="如：1.8m大床/1.2m单人床"
+                                  type="text"
                                   value={r.bedType || ''}
                                   onChange={(ev) => setRoomField(idx, 'bedType', ev.target.value)}
                                   fullWidth
+                                  inputProps={{ inputMode: 'text', autoComplete: 'off' }}
                                 />
                               </Grid>
                               <Grid item xs={12} sm={6}>
@@ -1457,10 +1468,10 @@ export default function HotelEdit() {
                                   size="small"
                                   label="面积(㎡)"
                                   placeholder="如：35"
-                                  type="number"
                                   value={r.area ?? ''}
-                                  onChange={(ev) => setRoomField(idx, 'area', ev.target.value)}
+                                  onChange={(ev) => setRoomField(idx, 'area', sanitizeDecimalInput(ev.target.value))}
                                   fullWidth
+                                  inputProps={{ inputMode: 'decimal' }}
                                 />
                               </Grid>
                               {(() => {
@@ -1510,11 +1521,10 @@ export default function HotelEdit() {
                                 <TextField
                                   size="small"
                                   label="总房间数"
-                                  type="number"
                                   value={r.totalRooms ?? 0}
-                                  onChange={(ev) => setRoomField(idx, 'totalRooms', ev.target.value)}
+                                  onChange={(ev) => setRoomField(idx, 'totalRooms', sanitizeIntInput(ev.target.value))}
                                   fullWidth
-                                  InputProps={{ inputProps: { min: 0 } }}
+                                  inputProps={{ inputMode: 'numeric', min: 0 }}
                                 />
                               </Grid>
                               
@@ -1522,10 +1532,10 @@ export default function HotelEdit() {
                             <TextField
                               variant="standard"
                               placeholder="0"
-                              type="number"
-                              value={r.price}
-                              onChange={(ev) => setRoomField(idx, 'price', ev.target.value)}
+                              value={r.price ?? ''}
+                              onChange={(ev) => setRoomField(idx, 'price', sanitizeDecimalInput(ev.target.value))}
                               InputProps={{ disableUnderline: true, style: { color: theme.palette.success.dark, fontWeight: 500 } }}
+                              inputProps={{ inputMode: 'decimal' }}
                             />
                           </Box>
                           <IconButton onClick={() => removeRoom(idx)} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
