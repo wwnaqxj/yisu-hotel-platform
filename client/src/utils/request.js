@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 export function createRequest(getToken) {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const instance = axios.create({
-    baseURL: 'http://localhost:3001',
+    baseURL,
     timeout: 15000,
   });
 

@@ -53,6 +53,19 @@ function priceRangeFromMinMax(priceMin, priceMax) {
   return PRICE_RANGES.find((r) => r.min === min && r.max === max) || { label: `¥${min}-${max}`, min, max };
 }
 
+function toAbsMediaUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+
+  const app = getApp();
+  const baseURLRaw = app?.globalData?.baseURL || 'https://yisuhotel.qxj123.xyz';
+  const baseURL = String(baseURLRaw).replace(/^http:\/\//, 'https://').replace(/\/$/, '');
+
+  if (/^https?:\/\//.test(raw)) return raw.replace(/^http:\/\//, 'https://');
+  if (raw.startsWith('/api/media/')) return `${baseURL}${raw}`;
+  return raw;
+}
+
 function enrichItem(h) {
   const starArr = Array.from({ length: h.star || 0 }, (_, i) => i);
   const topFacilities = Array.isArray(h.facilities) ? h.facilities.slice(0, 3) : [];
@@ -62,7 +75,7 @@ function enrichItem(h) {
     ...h,
     starArr,
     topFacilities: topFacilities.length ? topFacilities : [],
-    cardImage: (h.images && h.images[0]) || '',
+    cardImage: toAbsMediaUrl((h.images && h.images[0]) || ''),
     minPrice: price,
     score,
     scoreLabel: score != null ? scoreLabel(score) : '',

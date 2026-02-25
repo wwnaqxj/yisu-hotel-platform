@@ -73,9 +73,6 @@ function toDateInputValue(v) {
   return d.isValid() ? d.format('YYYY-MM-DD') : '';
 }
 
-// --- 1. 新增：配置你的后端地址 ---
-const API_BASE_URL = 'http://192.168.88.1:3001';
-
 // --- 2. 新增：图片地址转换函数 ---
 // 如果是本地选的图(blob)直接显示，如果是MinIO的图走后端代理
 const getMediaUrl = (url) => {
@@ -92,7 +89,7 @@ const getMediaUrl = (url) => {
 
   const bucket = m[1];
   const objectName = m[2];
-  return `${API_BASE_URL}/api/media/${encodeURIComponent(bucket)}/${objectName}`;
+  return `/api/media/${encodeURIComponent(bucket)}/${objectName}`;
 };
 
 // --- 子组件：美化的上传区域 ---

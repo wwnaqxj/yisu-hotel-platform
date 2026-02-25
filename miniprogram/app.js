@@ -9,7 +9,7 @@ const { getStore } = require('./utils/store');
 
 App({
   globalData: {
-    baseURL: (config && config.baseURL) || 'http://localhost:3001'
+    baseURL: (config && config.baseURL) || 'https://yisuhotel.qxj123.xyz'
   },
 
   getStore

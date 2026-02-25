@@ -471,7 +471,14 @@ Page({
     if (!raw) return '';
 
     // If already proxied.
-    if (/\/api\/media\//.test(raw)) return raw;
+    if (/\/api\/media\//.test(raw)) {
+      const app = getApp();
+      const baseURLRaw = app?.globalData?.baseURL || 'https://yisuhotel.qxj123.xyz';
+      const baseURL = String(baseURLRaw).replace(/^http:\/\//, 'https://').replace(/\/$/, '');
+      if (/^https?:\/\//.test(raw)) return raw.replace(/^http:\/\//, 'https://');
+      if (raw.startsWith('/api/media/')) return `${baseURL}${raw}`;
+      return raw;
+    }
 
     // Try to extract: http(s)://host/<bucket>/<objectName>
     const m = raw.match(/^https?:\/\/[^/]+\/([^/]+)\/(.+)$/);
@@ -486,7 +493,8 @@ Page({
       .join('/');
 
     const app = getApp();
-    const baseURL = app?.globalData?.baseURL || 'http://localhost:3001';
+    const baseURLRaw = app?.globalData?.baseURL || 'https://yisuhotel.qxj123.xyz';
+    const baseURL = String(baseURLRaw).replace(/^http:\/\//, 'https://').replace(/\/$/, '');
     return `${baseURL}/api/media/${encodeURIComponent(bucket)}/${objectNameEncoded}`;
   },
 

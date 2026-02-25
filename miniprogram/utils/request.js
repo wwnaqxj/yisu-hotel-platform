@@ -1,6 +1,7 @@
 function request({ url, method = 'GET', data, header }) {
   const app = getApp();
-  const baseURL = app?.globalData?.baseURL || 'http://localhost:3001';
+  const baseURLRaw = app?.globalData?.baseURL || 'https://yisuhotel.qxj123.xyz';
+  const baseURL = String(baseURLRaw).replace(/^http:\/\//, 'https://');
 
   return new Promise((resolve, reject) => {
     wx.request({
