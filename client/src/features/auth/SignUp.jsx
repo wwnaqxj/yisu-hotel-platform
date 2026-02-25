@@ -9,6 +9,11 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import Link from '@mui/material/Link';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -20,6 +25,7 @@ import AppTheme from './shared-theme/AppTheme.jsx';
 import { YisuLogoIcon, WeChatIcon } from './components/CustomIcons.jsx';
 import { setToken, setUser } from '../../store/userSlice.js';
 import { useApi } from '../../hooks/useApi.js';
+import entranceQr from './entrance.png';
 
 const Card = styled(MuiCard)(({ theme }) => ({
   display: 'flex',
@@ -74,6 +80,7 @@ export default function SignUp(props) {
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
   const [role, setRole] = React.useState('merchant');
   const [submitting, setSubmitting] = React.useState(false);
+  const [miniProgramOpen, setMiniProgramOpen] = React.useState(false);
 
   // 用户名规则：3–20 位，仅允许字母、数字、下划线
   const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
@@ -224,7 +231,7 @@ export default function SignUp(props) {
             <Button
               fullWidth
               variant="outlined"
-              onClick={() => alert('Sign up with Wechat')}
+              onClick={() => setMiniProgramOpen(true)}
               startIcon={<WeChatIcon />}
             >
               进入微信小程序
@@ -242,6 +249,52 @@ export default function SignUp(props) {
             </Typography>
           </Box>
         </Card>
+        <Dialog
+          open={miniProgramOpen}
+          onClose={() => setMiniProgramOpen(false)}
+          PaperProps={{
+            sx: {
+              position: 'fixed',
+              right: { xs: 16, sm: 32 },
+              top: '50%',
+              transform: 'translateY(-50%)',
+              m: 0,
+              borderRadius: 3,
+              p: 2,
+            },
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              pb: 1,
+            }}
+          >
+            微信小程序二维码
+            <IconButton
+              aria-label="close"
+              onClick={() => setMiniProgramOpen(false)}
+              size="small"
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 1, display: 'flex', justifyContent: 'center' }}>
+            <Box
+              component="img"
+              src={entranceQr}
+              alt="微信小程序二维码"
+              sx={{
+                width: 200,
+                height: 200,
+                borderRadius: 2,
+                boxShadow: 1,
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       </SignUpContainer>
     </AppTheme>
   );

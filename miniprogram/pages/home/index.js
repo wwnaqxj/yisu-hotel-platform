@@ -31,12 +31,13 @@ Page({
 
     const store = getApp().getStore();
     const q = store.getQuery();
+    const stars = Array.isArray(q.stars) ? q.stars.map((v) => String(v)) : [];
     this.setData({
       city: q.city,
       keyword: q.keyword,
       checkIn: q.checkIn,
       checkOut: q.checkOut,
-      stars: q.stars || [],
+      stars,
       priceMin: q.priceMin === undefined || q.priceMin === '' ? '' : String(q.priceMin),
       priceMax: q.priceMax === undefined || q.priceMax === '' ? '' : String(q.priceMax),
       tags: q.tags || []
@@ -163,12 +164,13 @@ Page({
 
   onSearch() {
     const { city, keyword, checkIn, checkOut, stars, priceMin, priceMax, tags } = this.data;
+    const starNums = (stars || []).map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n));
     getApp().getStore().setQuery({
       city,
       keyword,
       checkIn,
       checkOut,
-      stars: stars || [],
+      stars: starNums,
       priceMin: priceMin === '' ? '' : Number(priceMin),
       priceMax: priceMax === '' ? '' : Number(priceMax),
       tags: tags || []

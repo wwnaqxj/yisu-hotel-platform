@@ -48,7 +48,7 @@
         <text>{{currentSortLabel}}</text>
         <text class="tab-caret {{activeFilter==='sort' ? 'caret-up' : ''}}">▾</text>
       </view>
-      <view class="filter-tab {{activeFilter==='priceStar' ? 'tab-active' : ''}} {{(selectedPriceRange || selectedStar) ? 'tab-selected' : ''}}" data-type="priceStar" bindtap="onFilterTap">
+      <view class="filter-tab {{activeFilter==='priceStar' ? 'tab-active' : ''}} {{(selectedPriceRange || (selectedStars && selectedStars.length)) ? 'tab-selected' : ''}}" data-type="priceStar" bindtap="onFilterTap">
         <text>价格/星级</text>
         <text class="tab-caret {{activeFilter==='priceStar' ? 'caret-up' : ''}}">▾</text>
       </view>
@@ -93,8 +93,8 @@
     <view class="panel-title" style="margin-top:30rpx">星级要求</view>
     <view class="chip-row">
       <view
-        wx:for="{{[3,4,5]}}" wx:key="*this"
-        class="chip star-chip {{selectedStar===item ? 'chip-active' : ''}}"
+        wx:for="{{[1,2,3,4,5]}}" wx:key="*this"
+        class="chip star-chip {{selectedStarsMap[item] ? 'chip-active' : ''}}"
         data-star="{{item}}" bindtap="onStarSelect">
         <text>{{item}}星</text>
         <text class="star-emoji">★</text>
@@ -222,5 +222,5 @@
     </view>
   </scroll-view>
 
-  <assistant-float iconSrc="/components/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

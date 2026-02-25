@@ -41,10 +41,10 @@
 
     <view class="section">
       <view class="label">酒店星级</view>
-      <checkbox-group bindchange="onStarChange">
+      <checkbox-group value="{{stars}}" bindchange="onStarChange">
         <view class="star-row">
-          <label wx:for="{{[1,2,3,4,5]}}" wx:key="*this" class="star-item">
-            <checkbox value="{{item}}" checked="{{stars.indexOf(item) >= 0}}" />
+          <label wx:for="{{['1','2','3','4','5']}}" wx:key="*this" class="star-item">
+            <checkbox value="{{item}}" />
             <text>{{item}}星</text>
           </label>
         </view>
@@ -75,5 +75,5 @@
     <view class="btn" bindtap="onSearch">查询</view>
   </view>
 
-  <assistant-float iconSrc="/components/assets/ai.jpg" />
+  <assistant-float iconSrc="/components/assets/ai.png" />
 </view>

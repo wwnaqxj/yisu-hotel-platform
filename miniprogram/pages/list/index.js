@@ -117,7 +117,9 @@ Page({
     cities: FIXED_CITIES,
     priceRanges: PRICE_RANGES,
     selectedPriceRange: null,
-    selectedStar: null,
+    selectedStars: [],        // 数字数组，用于实际筛选
+    selectedStarValues: [],   // 字符串数组，用于 UI 高亮
+    selectedStarsMap: {},     // { [star]: true }，用于 WXML 高亮判断
 
     facilities: ['免费WiFi', '含早餐', '停车场', '游泳池', '健身房', '水疗中心', '24小时前台', '接送机', '可退款'],
     selectedFacilities: [],
@@ -136,12 +138,22 @@ Page({
 
     const starsStr = decodeOpt(options, 'stars');
     const tagsStr = decodeOpt(options, 'tags');
-    const stars = starsStr ? starsStr.split(',').map((s) => parseInt(s, 10)).filter((n) => !isNaN(n)) : [];
+    const stars = starsStr
+      ? starsStr
+          .split(',')
+          .map((s) => parseInt(s, 10))
+          .filter((n) => Number.isFinite(n))
+      : [];
     const tags = tagsStr ? tagsStr.split(',') : [];
     const priceMin = options.priceMin !== undefined && options.priceMin !== '' ? Number(options.priceMin) : '';
     const priceMax = options.priceMax !== undefined && options.priceMax !== '' ? Number(options.priceMax) : '';
 
-    const selectedStar = stars.length ? stars[0] : null;
+    const selectedStars = stars;
+    const selectedStarValues = stars.map((n) => String(n));
+    const selectedStarsMap = {};
+    selectedStars.forEach((n) => {
+      if (Number.isFinite(n)) selectedStarsMap[n] = true;
+    });
     const selectedPriceRange = priceRangeFromMinMax(priceMin, priceMax);
     const facilitySet = this.data.facilities;
     const selectedFacilities = tags.filter((t) => facilitySet.indexOf(t) >= 0);
@@ -163,10 +175,43 @@ Page({
       },
       nights: calcNights(checkIn, checkOut),
       cities,
-      selectedStar,
+      selectedStars,
+      selectedStarValues,
+      selectedStarsMap,
       selectedPriceRange,
       selectedFacilities,
     });
+
+    // #region agent-log onLoad-star-init
+    (function () {
+      const payload = {
+        sessionId: '741122',
+        runId: 'initial',
+        hypothesisId: 'H1',
+        location: 'miniprogram/pages/list/index.js:onLoad',
+        message: 'after onLoad init selectedStars/selectedStarValues',
+        data: { selectedStars, selectedStarValues, selectedStarsMap },
+        timestamp: Date.now(),
+      };
+      const url = 'http://127.0.0.1:7658/ingest/4becd920-19ad-436d-84eb-b1247b52220f';
+      const headers = { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '741122' };
+      if (typeof fetch === 'function') {
+        fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } else if (typeof wx !== 'undefined' && wx.request) {
+        wx.request({
+          url,
+          method: 'POST',
+          data: payload,
+          header: headers,
+          fail: () => {},
+        });
+      }
+    })();
+    // #endregion agent-log onLoad-star-init
     this.resetAndLoad();
   },
 
@@ -189,7 +234,7 @@ Page({
     this.setData({ loading: true, error: '' });
 
     try {
-      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStar, selectedFacilities } = this.data;
+      const { query, page, pageSize, currentSort, selectedPriceRange, selectedStars, selectedFacilities } = this.data;
       const params = { city: query.city, keyword: query.keyword, page, pageSize };
 
       const data = await request({ url: '/api/hotel/list', method: 'GET', data: params });
@@ -197,7 +242,10 @@ Page({
 
       let next = raw
         .filter((h) => {
-          if (selectedStar != null && Number(h.star) !== selectedStar) return false;
+          if (selectedStars && selectedStars.length) {
+            const starNum = Number(h.star);
+            if (!selectedStars.includes(starNum)) return false;
+          }
           const p = Number(h.minPrice ?? h.price ?? 0);
           if (selectedPriceRange && (p < selectedPriceRange.min || p > selectedPriceRange.max)) return false;
           if (selectedFacilities && selectedFacilities.length) {
@@ -332,12 +380,100 @@ Page({
 
   // Star
   onStarSelect(e) {
-    const star = e.currentTarget.dataset.star;
-    this.setData({ selectedStar: this.data.selectedStar === star ? null : star });
+    const star = Number(e.currentTarget.dataset.star);
+    if (!Number.isFinite(star)) return;
+
+    const prevMap = this.data.selectedStarsMap || {};
+    const beforeMap = Object.assign({}, prevMap);
+    const map = Object.assign({}, prevMap);
+    if (map[star]) {
+      delete map[star];
+    } else {
+      map[star] = true;
+    }
+    const selectedStars = Object.keys(map)
+      .map((k) => parseInt(k, 10))
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    const selectedStarValues = selectedStars.map((n) => String(n));
+
+    // #region agent-log star-click-before
+    (function (star, selectedStarValues, selectedStars, selectedStarsMap) {
+      const payload = {
+        sessionId: '741122',
+        runId: 'initial',
+        hypothesisId: 'H2',
+        location: 'miniprogram/pages/list/index.js:onStarSelect',
+        message: 'before toggle star',
+        data: {
+          star,
+          selectedStarValues,
+          selectedStars,
+          selectedStarsMap,
+        },
+        timestamp: Date.now(),
+      };
+      const url = 'http://127.0.0.1:7658/ingest/4becd920-19ad-436d-84eb-b1247b52220f';
+      const headers = { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '741122' };
+      if (typeof fetch === 'function') {
+        fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } else if (typeof wx !== 'undefined' && wx.request) {
+        wx.request({
+          url,
+          method: 'POST',
+          data: payload,
+          header: headers,
+          fail: () => {},
+        });
+      }
+    })(star, this.data.selectedStarValues, this.data.selectedStars, beforeMap);
+    // #endregion agent-log star-click-before
+
+    this.setData({ selectedStarsMap: map, selectedStars, selectedStarValues });
+
+    // #region agent-log star-click-after
+    (function (star, selectedStarValues, selectedStars, selectedStarsMap) {
+      const payload = {
+        sessionId: '741122',
+        runId: 'initial',
+        hypothesisId: 'H2',
+        location: 'miniprogram/pages/list/index.js:onStarSelect',
+        message: 'after toggle star',
+        data: {
+          star,
+          selectedStarValues,
+          selectedStars,
+          selectedStarsMap,
+        },
+        timestamp: Date.now(),
+      };
+      const url = 'http://127.0.0.1:7658/ingest/4becd920-19ad-436d-84eb-b1247b52220f';
+      const headers = { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '741122' };
+      if (typeof fetch === 'function') {
+        fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } else if (typeof wx !== 'undefined' && wx.request) {
+        wx.request({
+          url,
+          method: 'POST',
+          data: payload,
+          header: headers,
+          fail: () => {},
+        });
+      }
+    })(star, selectedStarValues, selectedStars, map);
+    // #endregion agent-log star-click-after
   },
 
   resetPriceStar() {
-    this.setData({ selectedPriceRange: null, selectedStar: null });
+    this.setData({ selectedPriceRange: null, selectedStars: [], selectedStarValues: [], selectedStarsMap: {} });
   },
 
   // Facilities
