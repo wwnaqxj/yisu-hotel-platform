@@ -27,7 +27,7 @@ async function streamObject(req, res, next) {
     if (contentType) res.setHeader('Content-Type', contentType);
     if (stat?.etag) res.setHeader('ETag', String(stat.etag));
     if (stat?.lastModified) res.setHeader('Last-Modified', new Date(stat.lastModified).toUTCString());
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Accept-Ranges', 'bytes');
 
     const totalSize = Number(stat.size || 0);

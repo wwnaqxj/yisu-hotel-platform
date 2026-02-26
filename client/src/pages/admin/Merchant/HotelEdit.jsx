@@ -454,6 +454,7 @@ export default function HotelEdit() {
     form.append('file', file);
     const res = await api.post(`/api/upload/single?type=${encodeURIComponent(type)}`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: type === 'video' ? 180000 : 60000,
     });
     const url = res.data?.url;
     if (!url) throw new Error('未返回 URL');
