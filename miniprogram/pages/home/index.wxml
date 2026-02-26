@@ -1,23 +1,24 @@
 <view class="container">
+  <!-- 品牌 Header -->
+  <view class="page-header">
+    <view class="page-header-title">易宿酒店</view>
+    <view class="page-header-sub">发现理想住所</view>
+  </view>
+
   <mobile-banner list="{{bannerList}}" />
 
   <view class="card query-card">
     <view class="section">
       <view class="label">城市</view>
       <view class="city-row">
-        <input
-          class="input city-input"
-          placeholder="请输入城市"
-          value="{{city}}"
-          bindinput="onCityInput"
-        />
-        <view class="relocate-btn" bindtap="onRelocate">
-          <text class="relocate-icon">📍</text>
-          <text class="relocate-text">重新定位</text>
+        <view class="city-input-wrap">
+          <mobile-city-picker
+            value="{{city}}"
+            placeholder="请选择城市"
+            bindchange="onCityPickerChange"
+          />
         </view>
       </view>
-      <view class="location-tip" wx:if="{{locationStatus === 'fail'}}">{{locationError}}</view>
-      <view class="location-tip success" wx:elif="{{locationStatus === 'success'}}">已定位</view>
     </view>
 
     <view class="section">

@@ -1,0 +1,15 @@
+<view class="city-picker">
+  <picker
+    mode="multiSelector"
+    range="{{range}}"
+    value="{{pickerValue}}"
+    bindchange="onChange"
+    bindcolumnchange="onColumnChange"
+  >
+    <view class="city-picker-display">
+      <text class="city-picker-icon">📍</text>
+      <text class="city-picker-text {{hasValue ? 'has-value' : 'is-placeholder'}}">{{ displayText }}</text>
+      <text class="city-picker-caret">▾</text>
+    </view>
+  </picker>
+</view>

@@ -1,0 +1,39 @@
+.city-picker {
+  width: 100%;
+}
+
+.city-picker-display {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8rpx;
+}
+
+.city-picker-icon {
+  font-size: 26rpx;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.city-picker-text {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #111827;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.city-picker-text.is-placeholder {
+  color: #aaa;
+  font-weight: 400;
+}
+
+.city-picker-caret {
+  font-size: 22rpx;
+  color: #bbb;
+  flex-shrink: 0;
+  margin-left: 2rpx;
+}

@@ -1,6 +1,7 @@
 <view class="page">
   <view class="head">
-    <view class="sub">全屏模式</view>
+    <view class="head-title">AI 智能助手</view>
+    <view class="sub">随时为您解答住宿问题</view>
   </view>
 
   <scroll-view class="msgs" scroll-y="true" scroll-with-animation="true" scroll-top="{{scrollTop}}">

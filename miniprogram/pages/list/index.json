@@ -7,6 +7,7 @@
   "backgroundColor": "#f7f7f7",
   "usingComponents": {
     "assistant-float": "/components/assistant-float/index",
+    "mobile-city-picker": "/components/mobile/city-picker/index",
     "mobile-range-slider": "/components/mobile/range-slider/index"
   }
 }

@@ -1,20 +1,28 @@
 .page {
   min-height: 100vh;
-  background: #f6f7fb;
+  background: #f5f6fa;
   padding-bottom: 140rpx;
   display: flex;
   flex-direction: column;
+  font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
 }
 
 .head {
-  padding: 18rpx 20rpx;
-  background: #fff;
-  border-bottom: 1rpx solid rgba(17, 24, 39, 0.06);
+  padding: 28rpx 24rpx 24rpx;
+  background: linear-gradient(135deg, #1677ff 0%, #0e5fd8 100%);
+}
+
+.head-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2rpx;
 }
 
 .sub {
-  font-size: 24rpx;
-  color: rgba(17, 24, 39, 0.55);
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 4rpx;
 }
 
 .msgs {
@@ -102,11 +110,12 @@
   width: 110rpx;
   height: 72rpx;
   border-radius: 16rpx;
-  background: #2f7bff;
+  background: linear-gradient(135deg, #1677ff, #0e5fd8);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   font-size: 26rpx;
+  box-shadow: 0 4rpx 12rpx rgba(22, 119, 255, 0.30);
 }

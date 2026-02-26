@@ -4,7 +4,6 @@
  */
 const { request } = require('../../utils/request');
 
-const FIXED_CITIES = ['北京', '上海', '广州', '深圳', '成都', '杭州'];
 const PRICE_RANGES = [
   { label: '¥50-200', min: 50, max: 200 },
   { label: '¥200-500', min: 200, max: 500 },
@@ -114,7 +113,6 @@ Page({
     currentSortLabel: '智能推荐',
 
     // Filters（与首页查询条件一致，可从 URL 恢复）
-    cities: FIXED_CITIES,
     priceRanges: PRICE_RANGES,
     selectedPriceRange: null,
     selectedStars: [],        // 数字数组，用于实际筛选
@@ -158,8 +156,6 @@ Page({
     const facilitySet = this.data.facilities;
     const selectedFacilities = tags.filter((t) => facilitySet.indexOf(t) >= 0);
 
-    const cities = city && FIXED_CITIES.indexOf(city) < 0 ? [city, ...FIXED_CITIES] : FIXED_CITIES;
-
     const store = getApp().getStore();
     store.setQuery({
       city, keyword, checkIn, checkOut,
@@ -174,7 +170,6 @@ Page({
         checkOutShort: toShort(checkOut),
       },
       nights: calcNights(checkIn, checkOut),
-      cities,
       selectedStars,
       selectedStarValues,
       selectedStarsMap,
@@ -286,7 +281,7 @@ Page({
 
   // ── City / Date ───────────────────────────────────────────────────────────
   onCityChange(e) {
-    const city = this.data.cities[e.detail.value];
+    const city = e.detail.city || '';
     this.setData({ 'query.city': city });
     getApp().getStore().setQuery({ city });
     this.resetAndLoad();

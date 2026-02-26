@@ -5,12 +5,13 @@
 
     <!-- Row 1: City + Date + Nights -->
     <view class="header-row1">
-      <picker mode="selector" range="{{cities}}" bindchange="onCityChange">
-        <view class="city-btn">
-          <text class="city-text">{{query.city || '城市'}}</text>
-          <text class="caret">▾</text>
-        </view>
-      </picker>
+      <view class="city-btn">
+        <mobile-city-picker
+          value="{{query.city}}"
+          placeholder="城市"
+          bindchange="onCityChange"
+        />
+      </view>
 
       <view class="divider-v"></view>
 
