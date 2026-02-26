@@ -5,6 +5,7 @@
   "usingComponents": {
     "assistant-float": "/components/assistant-float/index",
     "mobile-banner": "/components/mobile/banner/index",
+    "mobile-city-picker": "/components/mobile/city-picker/index",
     "mobile-calendar": "/components/mobile/calendar/index",
     "mobile-tags": "/components/mobile/tags/index",
     "mobile-range-slider": "/components/mobile/range-slider/index"

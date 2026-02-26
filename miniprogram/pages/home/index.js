@@ -1,18 +1,15 @@
 /**
  * 酒店查询首页
- * 创新点1：定位失败兜底（utils/location.js）- 失败时使用兜底城市并提示
- * 创新点2：智能推荐标签（mock/hotels.js TAGS_BY_CITY）- 根据当前城市展示热门标签
- * 创新点3：快捷日期选项（components/mobile/calendar）- 今天入住、明天入住、本周周末
+ * 城市选择改为固定列表选择（不再使用定位）
+ * 创新点1：智能推荐标签（mock/hotels.js TAGS_BY_CITY）- 根据当前城市展示热门标签
+ * 创新点2：快捷日期选项（components/mobile/calendar）- 今天入住、明天入住、本周周末
  */
-const { getCurrentCity } = require('../../utils/location');
 const { getTagsByCity } = require('../../mock/hotels');
 const { request } = require('../../utils/request');
 
 Page({
   data: {
     city: '',
-    locationStatus: 'loading',
-    locationError: '',
     keyword: '',
     checkIn: '',
     checkOut: '',
@@ -31,9 +28,10 @@ Page({
 
     const store = getApp().getStore();
     const q = store.getQuery();
+    const initCity = q.city || '北京';
     const stars = Array.isArray(q.stars) ? q.stars.map((v) => String(v)) : [];
     this.setData({
-      city: q.city,
+      city: initCity,
       keyword: q.keyword,
       checkIn: q.checkIn,
       checkOut: q.checkOut,
@@ -42,8 +40,11 @@ Page({
       priceMax: q.priceMax === undefined || q.priceMax === '' ? '' : String(q.priceMax),
       tags: q.tags || []
     });
-    this.syncTagItemsByCity(this.data.city);
-    this.tryLocation();
+    this.syncTagItemsByCity(initCity);
+
+    if (!q.city) {
+      store.setQuery({ city: initCity });
+    }
   },
 
   async loadBanner() {
@@ -73,40 +74,13 @@ Page({
     }
   },
 
-  onRelocate() {
-    this.tryLocation();
-  },
-
-  tryLocation() {
-    this.setData({ locationStatus: 'loading', locationError: '' });
-    getCurrentCity().then((res) => {
-      const store = getApp().getStore();
-      if (res.status === 'success') {
-        store.setQuery({ city: res.city });
-        this.setData({
-          city: res.city,
-          locationStatus: 'success',
-          locationError: ''
-        });
-      } else {
-        store.setQuery({ city: res.city });
-        this.setData({
-          city: res.city,
-          locationStatus: 'fail',
-          locationError: res.error || '定位失败，已默认选择北京'
-        });
-      }
-      this.syncTagItemsByCity(this.data.city);
-    });
-  },
-
   syncTagItemsByCity(city) {
     const items = getTagsByCity(city);
     this.setData({ tagItems: items });
   },
 
-  onCityInput(e) {
-    const city = e.detail.value;
+  onCityPickerChange(e) {
+    const city = e.detail.city || '';
     this.setData({ city });
     getApp().getStore().setQuery({ city });
     this.syncTagItemsByCity(city);
